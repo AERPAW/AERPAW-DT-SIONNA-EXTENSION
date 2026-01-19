@@ -1,55 +1,80 @@
 from typing import Dict, List, Optional, Tuple
 
-from sionna_wrapper import Sionna
-from utils import AntennaType
+from sionna_wrapper import SionnaFactory
+from utils import AntennaArrayType, AntennaType, PolarizationType, RadiationPattern
 
-engine = Sionna()
+engine_factory = SionnaFactory()
+engines = {}
+
+"""
+Eventually we're going to need the backend to be able to 
+handle multiple scene instances at once. This means that 
+we need to keep some state about the scene in the backend.
+
+In that case we probably need a route to generate a new
+scene, and then when we want to query any parameters from
+that specific scene we provide the id of our request inside
+that http request
+
+For now though, maybe we can just make it work with a single
+scene instance, so all the queries are directed to the same
+scene in the Sionna backend instead of having multiple scene
+instances. Maybe this framework works if we use multiple 
+# instances of the engine class for each of the different scenes?
+
+Let's try to treat instances of the Sionna class as separate
+scenes, and keep some of the state inside that class
+"""
 
 
-def initialize(scene_path: Optional[str] = None) -> None:
+"""
+All of these methods should have id parameters ideally
+"""
+
+def initialize(id: Optional[int] = 0, scene_path: Optional[str] = None) -> None:
     """Initialize the simulation engine with a scene."""
-    engine.load_simulation_scene(scene_path)
+    engines[id] = SionnaFactory.init_engine()
 
 
 def shutdown() -> None:
-    """Shutdown and clean up the simulation engine."""
-    engine.reset()
+    """Shutdown and clean up the simulation engines[0]."""
+    engines[0].reset()
 
 
 def get_scene_info() -> Dict:
     """Get information about the current scene."""
-    return engine.get_scene_info()
+    return engines[0].get_scene_info()
 
 
 def reset_scene() -> None:
     """Reset the scene to initial state."""
-    engine.reset()
+    engines[0].reset()
 
 
 def add_transmitter(
     name: str,
     position: Tuple[float, float, float],
+    signal_power: float,
+    velocity: Optional[Tuple[float, float, float]] = (0.0, 0.0, 0.0),
     orientation: Optional[Tuple[float, float, float]] = None,
 ) -> Dict:
     """Add a transmitter to the scene."""
-    engine.add_transmitter(name, position, orientation)
-    result = {"name": name, "position": position}
-    if orientation:
-        result["orientation"] = orientation
+    orientation_result = engines[0].add_transmitter(name, position, signal_power, velocity, orientation)
+    result = {"name": name, "position": position, "signal_power": signal_power, 
+              "velocity": velocity, "orientation": orientation_result}
     return result
-
 
 def update_transmitter_position(
     name: str, position: Tuple[float, float, float]
 ) -> Dict:
     """Update the position of an existing transmitter."""
-    engine.update_ant_position(AntennaType.Receiver, name, position)
+    engines[0].update_ant_position(AntennaType.Receiver, name, position)
     return {"name": name, "position": position}
 
 
 def get_transmitters() -> List[str]:
     """Get list of all transmitter names."""
-    return list(engine.transmitters.keys())
+    return list(engines[0].transmitters.keys())
 
 
 def add_receiver(
@@ -58,7 +83,7 @@ def add_receiver(
     orientation: Optional[Tuple[float, float, float]] = None,
 ) -> Dict:
     """Add a receiver to the scene."""
-    engine.add_receiver(name, position, orientation)
+    engines[0].add_receiver(name, position, orientation)
     result = {"name": name, "position": position}
     if orientation:
         result["orientation"] = orientation
@@ -67,13 +92,13 @@ def add_receiver(
 
 def update_receiver_position(name: str, position: Tuple[float, float, float]) -> Dict:
     """Update the position of an existing receiver."""
-    engine.update_ant_position(AntennaType.Transmitter, name, position)
+    engines[0].update_ant_position(AntennaType.Transmitter, name, position)
     return {"name": name, "position": position}
 
 
 def get_receivers() -> List[str]:
     """Get list of all receiver names."""
-    return list(engine.receivers.keys())
+    return list(engines[0].receivers.keys())
 
 
 def set_array(
@@ -121,7 +146,7 @@ def set_array(
     num_rows, num_cols = num_rows_cols
     vertical_spacing, horizontal_spacing = vertical_horizontal_spacing
 
-    engine.set_array(
+    engines[0].set_array(
         antenna_enum,
         num_rows,
         num_cols,
@@ -144,9 +169,9 @@ def set_array(
 
 def compute_paths(max_depth: int = 3) -> Dict:
     """Compute propagation paths between transmitters and receivers."""
-    return engine.compute_paths(max_depth)
+    return engines[0].compute_paths(max_depth)
 
 
 def get_cir() -> Dict:
     """Get the Channel Impulse Response."""
-    return engine.get_channel_impulse_response()
+    return engines[0].get_channel_impulse_response()

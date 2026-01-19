@@ -6,6 +6,17 @@ import main
 from schemas import *
 
 
+"""
+Add routes for removing receivers and transmitters
+by their unique name
+
+Change update routes to be more general, and allow them
+to update all characteristics of a transmitter/receiver
+
+There are currently some weird errors with adding the transmitter
+"""
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Starting Sionna simulation...")
@@ -61,22 +72,26 @@ def reset_scene():
     status_code=status.HTTP_201_CREATED,
     tags=["Transmitters"],
 )
-def add_tx(device: DeviceCreate):
+def add_tx(device: TransmitterCreate):
     """Add a new transmitter to the scene"""
     try:
+        print(device.name)
+        print(device.position.to_tuple())
+        print(device.signal_power)
+        print(device.velocity.to_tuple())
         result = main.add_transmitter(
             device.name,
             device.position.to_tuple(),
+            device.signal_power,
+            device.velocity.to_tuple(),
             device.orientation.to_tuple() if device.orientation else None,
         )
         return DeviceResponse(
             name=result["name"],
-            position=Position.from_tuple(result["position"]),
-            orientation=(
-                Position.from_tuple(result["orientation"])
-                if result.get("orientation")
-                else None
-            ),
+            position=Position.from_tuple(pos=result["position"]),
+            signal_power=result["signal_power"],
+            velocity=Position.from_tuple(pos=result["velocity"]),
+            orientation=Position.from_tuple(result["orientation"]),
         )
     except ValueError as e:
         raise HTTPException(
@@ -128,7 +143,7 @@ def update_tx(name: str, update_data: DeviceUpdate):
     status_code=status.HTTP_201_CREATED,
     tags=["Receivers"],
 )
-def add_rx(device: DeviceCreate):
+def add_rx(device: ReceiverCreate):
     """Add a new receiver to the scene"""
     try:
         result = main.add_receiver(

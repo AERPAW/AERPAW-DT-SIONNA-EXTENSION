@@ -1,9 +1,14 @@
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Final
 
-from utils import AntennaType
+from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType
+
+# Imports for the default scene object
+import sys
+sys.path.append("..")
 
 try:
     import sionna.rt
+    import mitsuba as mi
 except ImportError as e:
     import os
 
@@ -16,6 +21,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 no_preview = True  # Toggle to False to use the preview widget
+
+# Default values for scene parameters
+SCENE: Final[str] = "../data/scenes/lake-wheeler-trees-segmented.xml"
+TEMPERATURE: Final[float] = 300.0  # Temperaure in Kelvin
+BANDWIDTH: Final[float] = 30.0  # Bandwidth in MHz
+TX_ARRAY: Final[AntennaArrayType] = AntennaArrayType(AntennaType.Transmitter, 1, 1, 0.0, 0.0, RadiationPattern.ISO, PolarizationType.VERTICAL)
+RX_ARRAY: Final[AntennaArrayType] = AntennaArrayType(AntennaType.Receiver, 1, 1, 0.0, 0.0, RadiationPattern.ISO, PolarizationType.VERTICAL)
+
 
 # Import relevant components from Sionna RT
 from sionna.rt import (
@@ -31,23 +44,30 @@ from sionna.rt import (
 
 
 class Sionna:
-    def __init__(self):
-        self.scene = None
+    """
+    Let each instance of this class represent a separate
+    scene in the backend.
+    These should be created by an API route, and then queried
+    based on some unique scene id by a multithreaded backend
+    """
+    def __init__(self, 
+                 temperature: Optional[float] = TEMPERATURE,
+                 bandwidth: Optional[float] = BANDWIDTH,
+                 tx_array: Optional[AntennaArrayType] = TX_ARRAY,
+                 rx_array: Optional[AntennaArrayType] = RX_ARRAY,
+                 ):
+        # Using hardcoded scene because there's only one Lake Wheeler Environment
+        self.scene = load_scene(SCENE)
+
+        # These parameters are stored inside the Sionna scene
+        self.scene.temperature = temperature  # For thermal noise power
+        self.scene.bandwidth = bandwidth  # For thermal noise power
+        self.scene.tx_array = tx_array.planar_array
+        self.scene.rx_array = rx_array.planar_array
         self.transmitters: Dict[str, sionna.rt.Transmitter] = {}
         self.receivers: Dict[str, sionna.rt.Receiver] = {}
         self._path_solver = None
         self._computed_paths = None
-
-    def load_simulation_scene(self, scene_path: Optional[str] = None):
-        try:
-            if scene_path is None:
-                self.scene = load_scene(sionna.rt.scene.munich)
-            else:
-                self.scene = load_scene(scene_path)
-
-            print(f"Successfully loaded scene: {scene_path}")
-        except Exception as e:
-            raise RuntimeError(f"Failed to load scene: {e}")
 
     def get_scene_info(self):
         if not self.scene:
@@ -57,27 +77,35 @@ class Sionna:
             "objects": list(self.scene.objects.keys()),
             "transmitter_count": len(self.transmitters),
             "receiver_count": len(self.receivers),
+            "temperature": self.scene.temperature,
         }
 
     def add_transmitter(
         self,
         name: str,
         position: Tuple[float, float, float],
-        orientation: Optional[Tuple[float, float, float]] = None,
-    ) -> None:
+        signal_power: float,
+        velocity: Optional[Tuple[float, float, float]] = (0, 0, 0),
+        orientation: Tuple[float, float, float] = None,
+    ) -> Tuple[Tuple[float, float, float], AntennaArrayType]:
         if not self.scene:
             raise RuntimeError("Scene not loaded")
+        
+        tx = sionna.rt.Transmitter(name=name, position=position, 
+                                   power_dbm=signal_power, velocity=velocity)
 
-        if not self.scene.tx_array:
-            print("Tx array not defined. Setting to default")
-            self.set_array(AntennaType.Transmitter)
-
-        tx = sionna.rt.Transmitter(name=name, position=position)
-        if orientation:
-            tx.orientation = orientation
+        # Setting orientation
+        if orientation is None:
+            tx.look_at((position[0], position[1], position[2] - 1))  # Look down
+        else:
+            tx.orientation = mi.Point3f(orientation[0], orientation[1], orientation[2])
 
         self.scene.add(tx)
         self.transmitters[name] = tx
+
+        o = tx.orientation
+        return (o.x, o.y, o.z)
+
 
     def add_receiver(
         self,
@@ -178,6 +206,7 @@ class Sionna:
             "max_depth": max_depth,
         }
 
+
     def get_channel_impulse_response(self) -> Dict:
         """Return Channel Impulse Response (CIR) from computed paths."""
 
@@ -221,9 +250,29 @@ class Sionna:
 
             raise RuntimeError(f"Failed to extract CIR: {e}\n{traceback.format_exc()}")
 
+
     def reset(self) -> None:
         """Reset the simulation state."""
         self.transmitters.clear()
         self.receivers.clear()
         self._path_solver = None
         self._computed_paths = None
+
+
+class SionnaFactory():
+    """
+    Factory class for producing multiple Sionna
+    engine instances
+    """
+
+    @classmethod
+    def init_engine(cls, 
+                    temperature: Optional[float] = TEMPERATURE,
+                    bandwidth: Optional[float] = BANDWIDTH,
+                    tx_array: Optional[AntennaArrayType] = TX_ARRAY,
+                    rx_array: Optional[AntennaArrayType] = RX_ARRAY,
+                    ):
+        return Sionna(temperature=temperature, 
+                      bandwidth=bandwidth, 
+                      tx_array=tx_array, 
+                      rx_array=rx_array)

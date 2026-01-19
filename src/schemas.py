@@ -2,6 +2,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from utils import AntennaArrayType, AntennaType, RadiationPattern, PolarizationType
+
 
 class Position(BaseModel):
     x: float
@@ -16,20 +18,85 @@ class Position(BaseModel):
         return cls(x=pos[0], y=pos[1], z=pos[2])
 
 
-class DeviceCreate(BaseModel):
+class AntennaArrayConfig(BaseModel):
+    antenna_type: str = Field(..., description="Type of antenna: 'tx' or 'rx'")
+    num_rows: int = Field(1, ge=1, description="Number of antenna rows")
+    num_cols: int = Field(1, ge=1, description="Number of antenna columns")
+    vertical_spacing: float = Field(
+        0.5, gt=0, description="Vertical spacing between elements (in wavelengths)"
+    )
+    horizontal_spacing: float = Field(
+        0.5, gt=0, description="Horizontal spacing between elements (in wavelengths)"
+    )
+    pattern: str = Field(
+        "tr38901", description="Radiation pattern: 'iso', 'dipole', or 'tr38901'"
+    )
+    polarization: str = Field(
+        "V", description="Polarization type: 'V', 'H', or 'cross'"
+    )
+
+    def to_class(self):
+        return AntennaArrayType(self.antenna_type, 
+                                self.num_rows, 
+                                self.num_cols, 
+                                self.vertical_spacing, 
+                                self.horizontal_spacing, 
+                                self.pattern, 
+                                self.polarization)
+
+    @classmethod
+    def from_class(self, aa: AntennaArrayType):
+        return self(aa.antenna_type, aa.planar_array.num_rows, aa.num_cols,
+                    aa.horizontal_spacing, aa.vertical_spacing,
+                    aa.radiation_pattern, aa.polarization_type)
+
+
+class AntennaArrayResponse(BaseModel):
+    antenna_type: str
+    num_rows: int
+    num_cols: int
+    vertical_spacing: float
+    horizontal_spacing: float
+    pattern: str
+    polarization: str
+    message: str = "Antenna array configured successfully"
+
+
+class TransmitterCreate(BaseModel):
+    """
+    Creates a radio device in the simulated environment
+    """
     name: str = Field(..., description="Unique identifier for the device")
     position: Position
+    signal_power: float
+    velocity: Optional[Position] = Position(x=0, y=0, z=0)  # Used for doppler effects
+    orientation: Optional[Position] = None
+
+
+class ReceiverCreate(BaseModel):
+    """
+    Creates a new receiver in the scene
+    """
+    name: str = Field(..., description="Unique identifier for the device")
+    position: Position
+    velocity: Optional[Position] = Position(x=0, y=0, z=0)  # Used for doppler effects
     orientation: Optional[Position] = None
 
 
 class DeviceUpdate(BaseModel):
     position: Position
+    velocity: Optional[Position] = Position(x=0, y=0, z=0)  # Used for doppler effects
+    signal_power: Optional[float] = None  # Only used for transmitters
+    antenna_array: Optional[AntennaArrayConfig] = None
     orientation: Optional[Position] = None
 
 
 class DeviceResponse(BaseModel):
     name: str
+    type: str
     position: Position
+    velocity: Optional[Position] = Position(x=0, y=0, z=0)  # Used for doppler effects
+    signal_power: Optional[float] = None
     orientation: Optional[Position] = None
 
 
@@ -37,9 +104,14 @@ class PathComputationRequest(BaseModel):
     max_depth: int = Field(
         3, ge=1, le=10, description="Maximum number of reflections/diffractions"
     )
+    num_samples: int = Field(
+        1e5, ge=1, le=1e8, description="Number of ray used in path computation"
+    )
 
 
 class PathComputationResponse(BaseModel):
+    """Paths are only qualitified via the channel impulse response, not this response"""
+    
     path_count: int
     max_depth: int
     message: str = "Paths computed successfully"
@@ -80,6 +152,9 @@ class SceneInfoResponse(BaseModel):
     objects: List[str]
     transmitter_count: int
     receiver_count: int
+    tx_array: AntennaArrayResponse
+    rx_array: AntennaArrayResponse
+    temperature: float = Field(description="Temperature of the scene environment in Kelvin")
 
 
 class MessageResponse(BaseModel):
@@ -89,31 +164,3 @@ class MessageResponse(BaseModel):
 class StatusResponse(BaseModel):
     status: str
 
-
-class AntennaArrayConfig(BaseModel):
-    antenna_type: str = Field(..., description="Type of antenna: 'tx' or 'rx'")
-    num_rows: int = Field(1, ge=1, description="Number of antenna rows")
-    num_cols: int = Field(1, ge=1, description="Number of antenna columns")
-    vertical_spacing: float = Field(
-        0.5, gt=0, description="Vertical spacing between elements (in wavelengths)"
-    )
-    horizontal_spacing: float = Field(
-        0.5, gt=0, description="Horizontal spacing between elements (in wavelengths)"
-    )
-    pattern: str = Field(
-        "tr38901", description="Radiation pattern: 'iso', 'dipole', or 'tr38901'"
-    )
-    polarization: str = Field(
-        "V", description="Polarization type: 'V', 'H', or 'cross'"
-    )
-
-
-class AntennaArrayResponse(BaseModel):
-    antenna_type: str
-    num_rows: int
-    num_cols: int
-    vertical_spacing: float
-    horizontal_spacing: float
-    pattern: str
-    polarization: str
-    message: str = "Antenna array configured successfully"
