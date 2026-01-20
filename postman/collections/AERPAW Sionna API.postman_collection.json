@@ -1,0 +1,262 @@
+{
+  "info": {
+    "_postman_id": "a4da5c1c-3a06-4369-90cd-e9d1d713be19",
+    "name": "AERPAW Sionna API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Transmitter",
+      "item": [
+        {
+          "name": "Add Transmitter",
+          "id": "a3fb68ba-2101-462e-a098-9d70fc44653c",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"tx0\",\n  \"position\": {\n    \"x\": 0.0,\n    \"y\": 0.0,\n    \"z\": 0.0\n  },\n  \"signal_power\": 0.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/transmitters",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "transmitters"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transmitter",
+          "id": "60d99bf1-b2bb-4afe-aad3-26bbd98e0be9",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"static_transmitter\",\n  \"position\": {\n    \"x\": 0.0,\n    \"y\": 0.0,\n    \"z\": 0.0\n  },\n  \"signal_power\": 0.0\n}"
+            },
+            "url": {
+              "raw": "{{baseURL}}/transmitters",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "transmitters"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Transmitter",
+          "id": "a347d649-a479-44be-a9ca-2eaf57ccaf46",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": {\n    \"x\": 10.0,\n    \"y\": 20.0,\n    \"z\": 30.0\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/transmitters/tx0",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "transmitters",
+                "tx0"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "8a47bddc-f333-4fd3-bead-0dbb68876145"
+    },
+    {
+      "name": "Scene",
+      "item": [
+        {
+          "name": "Status",
+          "id": "9e8f9393-faee-4184-bfef-d07610e4cf60",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"coffee\": 1.5,\n    \"milk\": -1,\n    \"sugar\": 0,\n    \"chocolate\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseURL}}/",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Scene Info",
+          "id": "2a2a2dcd-a6c9-483f-9dcd-f0f68021f25c",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/scene",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "scene"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Scene",
+          "id": "8982d633-1096-4b1b-b693-459055c83242",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/scene/reset",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "scene",
+                "reset"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "0589d71f-3d13-4053-9766-f404870c0a82"
+    },
+    {
+      "name": "Receiver",
+      "item": [
+        {
+          "name": "Add Receiver",
+          "id": "687d138e-c40e-492c-9fb0-b7e2b4aebf77",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"rx0\",\n    \"position\": {\n        \"x\": 0.0,\n        \"y\": 0.0,\n        \"z\": 0.0\n    },\n    \"velocity\": {\n        \"x\": 1.0,\n        \"y\": 1.0,\n        \"z\": 1.0\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/receivers",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "receivers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Receivers",
+          "id": "b003d707-92dc-4235-b83b-28cf92c0b09a",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"rx0\",\n    \"position\": {\n        \"x\": 0.0,\n        \"y\": 0.0,\n        \"z\": 0.0\n    },\n    \"velocity\": {\n        \"x\": 1.0,\n        \"y\": 1.0,\n        \"z\": 1.0\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/receivers",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "receivers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Receiver",
+          "id": "a8d91d59-b7f6-460b-85f8-049149865250",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"rx0\",\n    \"position\": {\n        \"x\": 10.0,\n        \"y\": 10.0,\n        \"z\": 10.0\n    },\n    \"velocity\": {\n        \"x\": 0.0,\n        \"y\": 0.0,\n        \"z\": 0.0\n    },\n    \"orientation\": {\n        \"x\": 1.0,\n        \"y\": 0.5,\n        \"z\": -4.3\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/receivers/rx0",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "receivers",
+                "rx0"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "d43a6023-d497-43ff-b10d-2563e0404215"
+    }
+  ],
+  "variable": [
+    {
+      "id": "c64112e1-ce7c-42b9-aba4-6e04e520db4a",
+      "key": "baseURL",
+      "value": "",
+      "type": "default"
+    }
+  ]
+}

@@ -5,6 +5,9 @@ from fastapi import FastAPI, HTTPException, status
 import main
 from schemas import *
 
+# Debugging
+import traceback
+
 
 """
 Add routes for removing receivers and transmitters
@@ -14,6 +17,15 @@ Change update routes to be more general, and allow them
 to update all characteristics of a transmitter/receiver
 
 There are currently some weird errors with adding the transmitter
+
+The actual scene file should be immutable, but there isn't a reason that
+the other elements of the scene, (temperature, bandwidth, and antenna
+arrays) have to be immutable
+
+So we need a route to get scene information, and another put route to update scene information
+
+Also I should change the initialization from a lifespace to a 
+post request with the initial scene parameters that can return a scene id
 """
 
 
@@ -65,7 +77,7 @@ def reset_scene():
             detail=f"Failed to reset scene: {str(e)}",
         )
 
-
+# Tested Working
 @app.post(
     "/transmitters",
     response_model=DeviceResponse,
@@ -75,10 +87,6 @@ def reset_scene():
 def add_tx(device: TransmitterCreate):
     """Add a new transmitter to the scene"""
     try:
-        print(device.name)
-        print(device.position.to_tuple())
-        print(device.signal_power)
-        print(device.velocity.to_tuple())
         result = main.add_transmitter(
             device.name,
             device.position.to_tuple(),
@@ -88,12 +96,14 @@ def add_tx(device: TransmitterCreate):
         )
         return DeviceResponse(
             name=result["name"],
+            type="tx",
             position=Position.from_tuple(pos=result["position"]),
-            signal_power=result["signal_power"],
             velocity=Position.from_tuple(pos=result["velocity"]),
+            signal_power=result["signal_power"],
             orientation=Position.from_tuple(result["orientation"]),
         )
     except ValueError as e:
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid transmitter data: {str(e)}",
@@ -105,6 +115,7 @@ def add_tx(device: TransmitterCreate):
         )
 
 
+# Tested Working
 @app.get("/transmitters", response_model=List[str], tags=["Transmitters"])
 def list_tx():
     """List all transmitters in the scene"""
@@ -118,12 +129,23 @@ def list_tx():
 
 
 @app.put("/transmitters/{name}", response_model=DeviceResponse, tags=["Transmitters"])
-def update_tx(name: str, update_data: DeviceUpdate):
+def update_tx(name: str, data: TransmitterUpdate):
     """Update transmitter position"""
     try:
-        result = main.update_transmitter_position(name, update_data.position.to_tuple())
+        result = main.update_transmitter(
+            name, 
+            data.position.to_tuple() if data.position else None,
+            data.signal_power,
+            data.velocity.to_tuple() if data.velocity else None,
+            data.orientation.to_tuple() if data.orientation else None,
+        )
         return DeviceResponse(
-            name=result["name"], position=Position.from_tuple(result["position"])
+            name=result["name"], 
+            type="tx",
+            position=Position.from_tuple(result["position"]) if result["position"] else None,
+            velocity=Position.from_tuple(result["velocity"]) if result["velocity"] else None,
+            signal_power=result["signal_power"],
+            orientation=Position.from_tuple(result["orientation"]) if result["orientation"] else None,
         )
     except ValueError as e:
         raise HTTPException(
@@ -144,21 +166,21 @@ def update_tx(name: str, update_data: DeviceUpdate):
     tags=["Receivers"],
 )
 def add_rx(device: ReceiverCreate):
-    """Add a new receiver to the scene"""
+    """Adds a new receiver to the scene"""
     try:
         result = main.add_receiver(
             device.name,
             device.position.to_tuple(),
+            device.velocity.to_tuple(),
             device.orientation.to_tuple() if device.orientation else None,
         )
         return DeviceResponse(
             name=result["name"],
+            type="rx",
             position=Position.from_tuple(result["position"]),
-            orientation=(
-                Position.from_tuple(result["orientation"])
-                if result.get("orientation")
-                else None
-            ),
+            signal_power=None,
+            velocity=Position.from_tuple(result["velocity"]),
+            orientation=Position.from_tuple(result["orientation"]),
         )
     except ValueError as e:
         raise HTTPException(
@@ -185,12 +207,22 @@ def list_rx():
 
 
 @app.put("/receivers/{name}", response_model=DeviceResponse, tags=["Receivers"])
-def update_rx(name: str, update_data: DeviceUpdate):
+def update_rx(name: str, data: ReceiverUpdate):
     """Update receiver position"""
     try:
-        result = main.update_receiver_position(name, update_data.position.to_tuple())
+        result = main.update_receiver(
+            name, 
+            data.position.to_tuple() if data.position else None,
+            data.velocity.to_tuple() if data.velocity else None,
+            data.orientation.to_tuple() if data.orientation else None,
+        )
         return DeviceResponse(
-            name=result["name"], position=Position.from_tuple(result["position"])
+            name=result["name"], 
+            type="rx",
+            position=Position.from_tuple(result["position"]),
+            signal_power=None,
+            velocity=Position.from_tuple(result["velocity"]),
+            orientation=Position.from_tuple(result["orientation"]),
         )
     except ValueError as e:
         raise HTTPException(

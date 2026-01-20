@@ -52,24 +52,32 @@ class AntennaArrayConfig(BaseModel):
 
 
 class AntennaArrayResponse(BaseModel):
+    """
+    Maybe add more state to this later,
+    but this is all the state that Sionna keeps
+    """
     antenna_type: str
-    num_rows: int
-    num_cols: int
-    vertical_spacing: float
-    horizontal_spacing: float
-    pattern: str
-    polarization: str
-    message: str = "Antenna array configured successfully"
+    num_antennas: int
 
 
 class TransmitterCreate(BaseModel):
     """
-    Creates a radio device in the simulated environment
+    Creates a new transmitter in the scene
     """
     name: str = Field(..., description="Unique identifier for the device")
     position: Position
     signal_power: float
     velocity: Optional[Position] = Position(x=0, y=0, z=0)  # Used for doppler effects
+    orientation: Optional[Position] = None
+
+
+class TransmitterUpdate(BaseModel):
+    """
+    Updates all the parameters of a transmitter object by name
+    """
+    position: Optional[Position] = None
+    signal_power: Optional[float] = None
+    velocity: Optional[Position] = None
     orientation: Optional[Position] = None
 
 
@@ -83,11 +91,12 @@ class ReceiverCreate(BaseModel):
     orientation: Optional[Position] = None
 
 
-class DeviceUpdate(BaseModel):
-    position: Position
-    velocity: Optional[Position] = Position(x=0, y=0, z=0)  # Used for doppler effects
-    signal_power: Optional[float] = None  # Only used for transmitters
-    antenna_array: Optional[AntennaArrayConfig] = None
+class ReceiverUpdate(BaseModel):
+    """
+    Update all the parameters of a receiver in the scene
+    """
+    position: Optional[Position] = None
+    velocity: Optional[Position] = None
     orientation: Optional[Position] = None
 
 
@@ -155,6 +164,11 @@ class SceneInfoResponse(BaseModel):
     tx_array: AntennaArrayResponse
     rx_array: AntennaArrayResponse
     temperature: float = Field(description="Temperature of the scene environment in Kelvin")
+
+
+class ScenesResponse(BaseModel):
+   scene_count: int
+   scenes: List[SceneInfoResponse]
 
 
 class MessageResponse(BaseModel):

@@ -72,12 +72,25 @@ class Sionna:
     def get_scene_info(self):
         if not self.scene:
             raise RuntimeError("No scene loaded")
+        
+        # TODO: Make these a little more complete, or keep more state
+        tx_array = {
+            "antenna_type": "tx",
+            "num_antennas": self.scene.tx_array.num_ant,
+        }
+        rx_array = {
+            "antenna_type": "rx",
+            "num_antennas": self.scene.rx_array.num_ant,
+        }
+
         return {
             "object_count": len(self.scene.objects),
             "objects": list(self.scene.objects.keys()),
             "transmitter_count": len(self.transmitters),
             "receiver_count": len(self.receivers),
-            "temperature": self.scene.temperature,
+            "tx_array": tx_array,
+            "rx_array": rx_array,
+            "temperature": self.scene.temperature[0],
         }
 
     def add_transmitter(
@@ -91,42 +104,50 @@ class Sionna:
         if not self.scene:
             raise RuntimeError("Scene not loaded")
         
-        tx = sionna.rt.Transmitter(name=name, position=position, 
-                                   power_dbm=signal_power, velocity=velocity)
+        tx = sionna.rt.Transmitter(name=name, position=mi.Point3f(list(position)), 
+                                   power_dbm=signal_power, velocity=mi.Vector3f(list(velocity)))
 
         # Setting orientation
-        if orientation is None:
-            tx.look_at((position[0], position[1], position[2] - 1))  # Look down
+        if orientation:
+            tx.orientation = mi.Point3f(list(orientation))
         else:
-            tx.orientation = mi.Point3f(orientation[0], orientation[1], orientation[2])
+            tx.look_at(mi.Point3f([position[0], position[1], position[2] - 1]))  # Look down by default
 
         self.scene.add(tx)
         self.transmitters[name] = tx
 
         o = tx.orientation
-        return (o.x, o.y, o.z)
+        # Indexing out of a 0d tensor
+        return (o.x[0], o.y[0], o.z[0])
 
 
     def add_receiver(
         self,
         name: str,
         position: Tuple[float, float, float],
+        velocity: Tuple[float, float, float],
         orientation: Optional[Tuple[float, float, float]] = None,
     ) -> None:
         """Add a receiver to the scene."""
         if not self.scene:
             raise RuntimeError("Scene not loaded")
 
-        if not self.scene.rx_array:
-            print("Rx array not defined. Setting to default")
-            self.set_array(AntennaType.Receiver)
-
-        rx = sionna.rt.Receiver(name=name, position=position)
+        rx = sionna.rt.Receiver(name=name, position=mi.Point3f(list(position)),
+                                velocity=mi.Point3f(list(velocity)))
+        
+        # Setting orientation
         if orientation:
-            rx.orientation = orientation
+            rx.orientation = mi.Point3f(list(orientation))
+        else:
+            rx.look_at(mi.Point3f([position[0], position[1], position[2] + 1]))  # Look up by default
 
         self.scene.add(rx)
         self.receivers[name] = rx
+
+        o = rx.orientation
+        # Indexing out of a 0d tensor
+        return (o.x[0], o.y[0], o.z[0])
+    
 
     def set_array(
         self,
@@ -160,24 +181,46 @@ class Sionna:
                 pattern=pattern,
                 polarization=polarization,
             )
+    
 
-    def update_ant_position(
-        self, ant_type: AntennaType, name: str, position: Tuple[float, float, float]
+    def update_tx(self, name: str, 
+                  position: Tuple[float, float, float],
+                  signal_power: float,
+                  velocity: Tuple[float, float, float],
+                  orientation: Tuple[float, float, float]
     ) -> None:
-        """Update transmitter position."""
+        """Updates parameters for a transmitter in the scene"""
+        if name not in self.transmitters:
+            raise ValueError(f"Transmitter '{name}' doesn't exist in this scene")
 
-        if ant_type == AntennaType.Transmitter:
-            if name not in self.transmitters:
-                raise ValueError(f"Transmitter '{name}' not found")
+        device = self.transmitters[name]
+        if position:
+            device.position = mi.Point3f(list(position)) 
+        if signal_power:
+            device.power_dbm = signal_power
+        if velocity:
+            device.velocity = mi.Vector3f(list(velocity))
+        if orientation:
+            device.orientation = mi.Point3f(list(orientation))
 
-            self.transmitters[name].position = position
-        elif ant_type == AntennaType.Receiver:
-            if name not in self.receivers:
-                raise ValueError(f"Receiver '{name}' not found")
 
-            self.receivers[name].position = position
-        else:
-            raise RuntimeError("Invalid Antenna Type")
+    def update_rx(self, name: str,
+                  position: Tuple[float, float, float],
+                  velocity: Tuple[float, float, float],
+                  orientation: Tuple[float, float, float]
+    ) -> None:
+        """Updates all the parameters of a receiver in the scene"""
+        if name not in self.receivers:
+            raise ValueError(f"Receiver '{name}' doesn't exist in this scene")
+    
+        device = self.receivers[name]
+        if position:
+            device.position = mi.Point3f(list(position))
+        if velocity:
+            device.velocity = mi.Vector3f(list(velocity))
+        if orientation:
+            device.orientation = mi.Point3f(list(orientation))
+    
 
     def compute_paths(self, max_depth: int = 3) -> Dict:
         """Compute propagation paths between transmitters and receivers."""

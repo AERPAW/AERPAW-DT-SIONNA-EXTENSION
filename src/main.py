@@ -64,12 +64,18 @@ def add_transmitter(
               "velocity": velocity, "orientation": orientation_result}
     return result
 
-def update_transmitter_position(
-    name: str, position: Tuple[float, float, float]
+
+def update_transmitter(
+    name: str, 
+    position: Optional[Tuple[float, float, float]],
+    signal_power: Optional[float],
+    velocity: Optional[Tuple[float, float, float]],
+    orientation: Optional[Tuple[float, float, float]],
 ) -> Dict:
     """Update the position of an existing transmitter."""
-    engines[0].update_ant_position(AntennaType.Receiver, name, position)
-    return {"name": name, "position": position}
+    engines[0].update_tx(name, position, signal_power, velocity, orientation)
+    return {"name": name, "position": position, "signal_power": signal_power,
+            "velocity": velocity, "orientation": orientation}
 
 
 def get_transmitters() -> List[str]:
@@ -80,20 +86,25 @@ def get_transmitters() -> List[str]:
 def add_receiver(
     name: str,
     position: Tuple[float, float, float],
+    velocity: Tuple[float, float, float],
     orientation: Optional[Tuple[float, float, float]] = None,
 ) -> Dict:
     """Add a receiver to the scene."""
-    engines[0].add_receiver(name, position, orientation)
-    result = {"name": name, "position": position}
-    if orientation:
-        result["orientation"] = orientation
+    orientation_result = engines[0].add_receiver(name, position, velocity, orientation)
+    result = {"name": name, "position": position,
+              "velocity": velocity, "orientation": orientation_result}
     return result
 
 
-def update_receiver_position(name: str, position: Tuple[float, float, float]) -> Dict:
+def update_receiver(name: str, 
+                    position: Tuple[float, float, float],
+                    velocity: Tuple[float, float, float],
+                    orientation: Tuple[float, float, float],
+) -> Dict:
     """Update the position of an existing receiver."""
-    engines[0].update_ant_position(AntennaType.Transmitter, name, position)
-    return {"name": name, "position": position}
+    engines[0].update_rx(name, position, velocity, orientation)
+    return {"name": name, "position": position,
+            "velocity": velocity, "orientation": orientation}
 
 
 def get_receivers() -> List[str]:
