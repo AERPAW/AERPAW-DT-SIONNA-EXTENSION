@@ -44,15 +44,16 @@
           "request": {
             "method": "GET",
             "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"static_transmitter\",\n  \"position\": {\n    \"x\": 0.0,\n    \"y\": 0.0,\n    \"z\": 0.0\n  },\n  \"signal_power\": 0.0\n}"
-            },
             "url": {
-              "raw": "{{baseURL}}/transmitters",
+              "raw": "https://127.0.0.1:8000/transmitters",
+              "protocol": "https",
               "host": [
-                "{{baseURL}}"
+                "127",
+                "0",
+                "0",
+                "1"
               ],
+              "port": "8000",
               "path": [
                 "transmitters"
               ]
@@ -249,6 +250,63 @@
         }
       ],
       "id": "d43a6023-d497-43ff-b10d-2563e0404215"
+    },
+    {
+      "name": "SDR",
+      "item": [
+        {
+          "name": "CIR",
+          "id": "f044040e-33b3-4cf4-987d-d2a6eb22b242",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"rx0\",\n    \"position\": {\n        \"x\": 0.0,\n        \"y\": 0.0,\n        \"z\": 0.0\n    },\n    \"velocity\": {\n        \"x\": 1.0,\n        \"y\": 1.0,\n        \"z\": 1.0\n    }\n}"
+            },
+            "url": {
+              "raw": "{{baseURL}}/simulation/cir",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "simulation",
+                "cir"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Paths",
+          "id": "9863c065-dc2c-4ec4-afd0-b0e5a25a6fe2",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"max_depth\": 2,\n    \"num_samples\": 100000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/simulation/paths",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "simulation",
+                "paths"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "a371f189-b997-4870-8451-8895abdb5cf6"
     }
   ],
   "variable": [

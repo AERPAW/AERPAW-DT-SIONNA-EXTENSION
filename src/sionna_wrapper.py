@@ -23,7 +23,7 @@ import numpy as np
 no_preview = True  # Toggle to False to use the preview widget
 
 # Default values for scene parameters
-SCENE: Final[str] = "../data/scenes/lake-wheeler-trees-segmented.xml"
+SCENE: Final[str] = "/app/scenes/lake-wheeler-scene.xml"
 TEMPERATURE: Final[float] = 300.0  # Temperaure in Kelvin
 BANDWIDTH: Final[float] = 30.0  # Bandwidth in MHz
 TX_ARRAY: Final[AntennaArrayType] = AntennaArrayType(AntennaType.Transmitter, 1, 1, 0.0, 0.0, RadiationPattern.ISO, PolarizationType.VERTICAL)
@@ -163,24 +163,18 @@ class Sionna:
         if not self.scene:
             raise RuntimeError("Scene not loaded")
 
+        antenna_array = PlanarArray(
+            num_rows=num_rows,
+            num_cols=num_cols,
+            vertical_spacing=vertical_spacing,
+            horizontal_spacing=horizontal_spacing,
+            pattern=pattern,
+            polarization=polarization,
+        )
         if ant_type == AntennaType.Transmitter:
-            self.scene.tx_array = PlanarArray(
-                num_rows=num_rows,
-                num_cols=num_cols,
-                vertical_spacing=vertical_spacing,
-                horizontal_spacing=horizontal_spacing,
-                pattern=pattern,
-                polarization=polarization,
-            )
+            self.scene.tx_array = antenna_array
         elif ant_type == AntennaType.Receiver:
-            self.scene.rx_array = PlanarArray(
-                num_rows=num_rows,
-                num_cols=num_cols,
-                vertical_spacing=vertical_spacing,
-                horizontal_spacing=horizontal_spacing,
-                pattern=pattern,
-                polarization=polarization,
-            )
+            self.scene.rx_array = antenna_array
     
 
     def update_tx(self, name: str, 
@@ -231,7 +225,8 @@ class Sionna:
             raise RuntimeError("No transmitters or receivers in scene")
 
         # Initialize path solver
-        self._path_solver = sionna.rt.PathSolver()
+        if not self._path_solver:
+            self._path_solver = sionna.rt.PathSolver()
 
         # Compute paths
         self._computed_paths = self._path_solver(scene=self.scene, max_depth=max_depth)
