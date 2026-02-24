@@ -1,6 +1,22 @@
 from sionna.rt import PlanarArray
-from typing import Optional
+from typing import Optional, Tuple
 from enum import Enum
+from sionna_wrapper import ORIGIN_SCENE
+
+
+class CoordinateTransform():
+    """
+    Provides functionality for converting between Sionna and real world coordinates
+    """
+
+    @classmethod
+    def to_sionna(pos: Tuple[float, float, float]) -> Tuple[float, float, float]:
+        return (pos[i] + ORIGIN_SCENE[i] for i in range(3))
+
+
+    @classmethod
+    def from_sionna(pos: Tuple[float, float, float]) -> Tuple[float, float, float]:
+        return (pos[i] - ORIGIN_SCENE[i] for i in range(3))
 
 
 class AntennaType(Enum):

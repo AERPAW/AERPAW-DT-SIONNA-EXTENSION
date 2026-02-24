@@ -1,6 +1,6 @@
-from typing import Dict, Optional, Tuple, Final
-
+from typing import Dict, Optional, Tuple, Final, List
 from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType
+from utils import CoordinateTransform as CT
 
 # Imports for the default scene object
 import sys
@@ -28,7 +28,10 @@ TEMPERATURE: Final[float] = 300.0  # Temperaure in Kelvin
 BANDWIDTH: Final[float] = 30.0  # Bandwidth in MHz
 TX_ARRAY: Final[AntennaArrayType] = AntennaArrayType(AntennaType.Transmitter, 1, 1, 0.0, 0.0, RadiationPattern.ISO, PolarizationType.VERTICAL)
 RX_ARRAY: Final[AntennaArrayType] = AntennaArrayType(AntennaType.Receiver, 1, 1, 0.0, 0.0, RadiationPattern.ISO, PolarizationType.VERTICAL)
-
+# Position of LW1 in lat/lon/alt
+ORIGIN_LAT_LON: Final[Dict[str, float]] = {"lat": 35.72750947, "lon": -78.69595819, "alt": 82.973}
+# Position of LW1 in the Sionna coordinate system (x, y, z) in meters
+ORIGIN_SCENE: Final[List[float]] = [2021, 1974, 123]
 
 # Import relevant components from Sionna RT
 from sionna.rt import (
@@ -104,6 +107,7 @@ class Sionna:
         if not self.scene:
             raise RuntimeError("Scene not loaded")
         
+        position = CT.to_sionna(position)
         tx = sionna.rt.Transmitter(name=name, position=mi.Point3f(list(position)), 
                                    power_dbm=signal_power, velocity=mi.Vector3f(list(velocity)))
 
@@ -132,6 +136,7 @@ class Sionna:
         if not self.scene:
             raise RuntimeError("Scene not loaded")
 
+        position = CT.to_sionna(position)
         rx = sionna.rt.Receiver(name=name, position=mi.Point3f(list(position)),
                                 velocity=mi.Point3f(list(velocity)))
         
@@ -187,6 +192,7 @@ class Sionna:
         if name not in self.transmitters:
             raise ValueError(f"Transmitter '{name}' doesn't exist in this scene")
 
+        position = CT.to_sionna(position)
         device = self.transmitters[name]
         if position:
             device.position = mi.Point3f(list(position)) 
@@ -207,6 +213,7 @@ class Sionna:
         if name not in self.receivers:
             raise ValueError(f"Receiver '{name}' doesn't exist in this scene")
     
+        position = CT.to_sionna(position)
         device = self.receivers[name]
         if position:
             device.position = mi.Point3f(list(position))
@@ -216,7 +223,7 @@ class Sionna:
             device.orientation = mi.Point3f(list(orientation))
     
 
-    def compute_paths(self, max_depth: int = 3) -> Dict:
+    def compute_paths(self, max_depth: int = 3) -> Dict[str, int]:
         """Compute propagation paths between transmitters and receivers."""
         if not self.scene:
             raise RuntimeError("Scene not loaded")
@@ -245,7 +252,7 @@ class Sionna:
         }
 
 
-    def get_channel_impulse_response(self) -> Dict:
+    def get_channel_impulse_response(self) -> Dict[str]:
         """Return Channel Impulse Response (CIR) from computed paths."""
 
         try:
