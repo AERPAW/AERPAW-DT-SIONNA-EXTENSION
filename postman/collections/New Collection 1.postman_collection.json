@@ -44,7 +44,7 @@
         "header": [],
         "body": {
           "mode": "raw",
-          "raw": "{\"ingredientType\": \"SUGAR\", \"amount\": 5}",
+          "raw": "{\n    \"name\": \"Cocoa\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -52,7 +52,7 @@
           }
         },
         "url": {
-          "raw": "http://localhost:8080/api/ingredients",
+          "raw": "http://localhost:8080/api/ingredients?initialAmount=8",
           "protocol": "http",
           "host": [
             "localhost"
@@ -61,6 +61,13 @@
           "path": [
             "api",
             "ingredients"
+          ],
+          "query": [
+            {
+              "key": "initialAmount",
+              "value": "8",
+              "uuid": "b5ddc8b4-4060-4970-b455-041b23d35afd"
+            }
           ]
         }
       },
@@ -117,6 +124,142 @@
             "ingredient",
             "6"
           ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Inventory",
+      "id": "02dea8f7-2bef-49d5-b608-8f7949712d20",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": ""
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Add Recipe",
+      "id": "3a28ca37-fb14-47cb-9cb5-84bdbbe71ddc",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"name\": \"Hot Chocolate\",\n    \"price\": 7,\n    \"ingredients\": [{\n        \"ingredientType\": \"Cocoa\",\n        \"amount\": 3\n    }]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/recipes",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "recipes"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Ingredients",
+      "id": "00779a2c-58bf-4d66-9898-9f9d5bad85bb",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/ingredients",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "ingredients"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Make Recipe",
+      "id": "16f4ae28-2000-4888-ac92-391b88c12794",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "10",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/makerecipe/Coffee",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "makerecipe",
+            "Coffee"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update Inventory",
+      "id": "034db4f5-ed18-49ed-8896-dbe7ebb9081a",
+      "request": {
+        "method": "PUT",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"id\": 0,\n    \"coffee\": 100,\n    \"milk\": 100,\n    \"sugar\": 100,\n    \"chocolate\": 100\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/inventory",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "inventory"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Recipes",
+      "id": "0f0f683a-685a-47da-9c25-cd9a81334bbd",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": ""
         }
       },
       "response": []
