@@ -1,5 +1,5 @@
-from typing import Dict, Optional, Tuple, Final, List
-from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType
+from typing import Dict, Optional, Tuple, Final, Any
+from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType, ORIGIN_LAT_LON
 from utils import CoordinateTransform as CT
 
 # Imports for the default scene object
@@ -20,18 +20,18 @@ except ImportError as e:
 import matplotlib.pyplot as plt
 import numpy as np
 
-no_preview = True  # Toggle to False to use the preview widget
-
 # Default values for scene parameters
+# SCENE: Final[str] = "../data/scenes/lake-wheeler-scene.xml"
 SCENE: Final[str] = "/app/scenes/lake-wheeler-scene.xml"
 TEMPERATURE: Final[float] = 300.0  # Temperaure in Kelvin
 BANDWIDTH: Final[float] = 30.0  # Bandwidth in MHz
 TX_ARRAY: Final[AntennaArrayType] = AntennaArrayType(AntennaType.Transmitter, 1, 1, 0.0, 0.0, RadiationPattern.ISO, PolarizationType.VERTICAL)
 RX_ARRAY: Final[AntennaArrayType] = AntennaArrayType(AntennaType.Receiver, 1, 1, 0.0, 0.0, RadiationPattern.ISO, PolarizationType.VERTICAL)
-# Position of LW1 in lat/lon/alt
-ORIGIN_LAT_LON: Final[Dict[str, float]] = {"lat": 35.72750947, "lon": -78.69595819, "alt": 82.973}
-# Position of LW1 in the Sionna coordinate system (x, y, z) in meters
-ORIGIN_SCENE: Final[List[float]] = [2021, 1974, 123]
+
+# Scattering Coefficient Values
+METAL_SC: Final[float] = 0.1
+CONCRETE_SC: Final[float] = 0.3
+GROUND_SC: Final[float] = 0.5
 
 # Import relevant components from Sionna RT
 from sionna.rt import (
@@ -62,6 +62,12 @@ class Sionna:
         # Using hardcoded scene because there's only one Lake Wheeler Environment
         self.scene = load_scene(SCENE)
 
+        # Setting scattering coefficients
+        self.scene.objects.get("building-roofs").radio_material.scattering_coefficient = METAL_SC
+        self.scene.objects.get("building-roofs-shaped").radio_material.scattering_coefficient = METAL_SC
+        self.scene.objects.get("building-walls").radio_material.scattering_coefficient = CONCRETE_SC
+        self.scene.objects.get("terrain-mesh").radio_material.scattering_coefficient = GROUND_SC
+
         # These parameters are stored inside the Sionna scene
         self.scene.temperature = temperature  # For thermal noise power
         self.scene.bandwidth = bandwidth  # For thermal noise power
@@ -69,7 +75,7 @@ class Sionna:
         self.scene.rx_array = rx_array.planar_array
         self.transmitters: Dict[str, sionna.rt.Transmitter] = {}
         self.receivers: Dict[str, sionna.rt.Receiver] = {}
-        self._path_solver = None
+        self._path_solver = sionna.rt.PathSolver()
         self._computed_paths = None
 
     def get_scene_info(self):
@@ -95,6 +101,17 @@ class Sionna:
             "rx_array": rx_array,
             "temperature": self.scene.temperature[0],
         }
+    
+    def get_reference_frame(self):
+        """Gets information about the scene reference frame"""
+        return {
+            "origin_lat": ORIGIN_LAT_LON[0],
+            "origin_lon": ORIGIN_LAT_LON[1],
+            "origin_alt": ORIGIN_LAT_LON[2],
+            "x_direction": "positive_lat",
+            "y_direction": "negative_lon",
+            "z_direction": "positive_alt",
+        }
 
     def add_transmitter(
         self,
@@ -107,7 +124,7 @@ class Sionna:
         if not self.scene:
             raise RuntimeError("Scene not loaded")
         
-        position = CT.to_sionna(position)
+        position = CT.to_sionna(pos=position)
         tx = sionna.rt.Transmitter(name=name, position=mi.Point3f(list(position)), 
                                    power_dbm=signal_power, velocity=mi.Vector3f(list(velocity)))
 
@@ -136,7 +153,7 @@ class Sionna:
         if not self.scene:
             raise RuntimeError("Scene not loaded")
 
-        position = CT.to_sionna(position)
+        position = CT.to_sionna(pos=position)
         rx = sionna.rt.Receiver(name=name, position=mi.Point3f(list(position)),
                                 velocity=mi.Point3f(list(velocity)))
         
@@ -192,7 +209,7 @@ class Sionna:
         if name not in self.transmitters:
             raise ValueError(f"Transmitter '{name}' doesn't exist in this scene")
 
-        position = CT.to_sionna(position)
+        position = CT.to_sionna(pos=position)
         device = self.transmitters[name]
         if position:
             device.position = mi.Point3f(list(position)) 
@@ -213,7 +230,7 @@ class Sionna:
         if name not in self.receivers:
             raise ValueError(f"Receiver '{name}' doesn't exist in this scene")
     
-        position = CT.to_sionna(position)
+        position = CT.to_sionna(pos=position)
         device = self.receivers[name]
         if position:
             device.position = mi.Point3f(list(position))
@@ -223,7 +240,7 @@ class Sionna:
             device.orientation = mi.Point3f(list(orientation))
     
 
-    def compute_paths(self, max_depth: int = 3) -> Dict[str, int]:
+    def compute_paths(self, max_depth: int = 3, num_samples: int = 10e5) -> Dict[str, int]:
         """Compute propagation paths between transmitters and receivers."""
         if not self.scene:
             raise RuntimeError("Scene not loaded")
@@ -231,12 +248,12 @@ class Sionna:
         if not self.transmitters or not self.receivers:
             raise RuntimeError("No transmitters or receivers in scene")
 
-        # Initialize path solver
-        if not self._path_solver:
-            self._path_solver = sionna.rt.PathSolver()
-
         # Compute paths
-        self._computed_paths = self._path_solver(scene=self.scene, max_depth=max_depth)
+        print(num_samples)
+        self._computed_paths = self._path_solver(scene=self.scene, max_depth=max_depth, 
+                                                 max_num_paths_per_src=num_samples, samples_per_src=num_samples,
+                                                 los=True, specular_reflection=True, diffuse_reflection=True,
+                                                 refraction=True)
 
         path_count = 0
         if (
@@ -252,7 +269,7 @@ class Sionna:
         }
 
 
-    def get_channel_impulse_response(self) -> Dict[str]:
+    def get_channel_impulse_response(self) -> Dict[str, Any]:
         """Return Channel Impulse Response (CIR) from computed paths."""
 
         try:
@@ -300,14 +317,14 @@ class Sionna:
         """Reset the simulation state."""
         self.transmitters.clear()
         self.receivers.clear()
-        self._path_solver = None
+        self._path_solver = sionna.rt.PathSolver()
         self._computed_paths = None
 
 
 class SionnaFactory():
     """
     Factory class for producing multiple Sionna
-    engine instances
+    engine instance
     """
 
     @classmethod

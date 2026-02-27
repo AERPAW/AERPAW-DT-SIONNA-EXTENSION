@@ -64,6 +64,17 @@ def get_scene():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve scene info: {str(e)}",
         )
+    
+
+@app.get("/scene/reference", response_model=ReferenceFrameResponse, tags=["Scane"])
+def get_reference():
+    try:
+        return main.get_reference_frame()
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get scene reference frame: {str(e)}",
+        )
 
 
 @app.post("/scene/reset", response_model=MessageResponse, tags=["Scene"])
@@ -240,7 +251,7 @@ def update_rx(name: str, data: ReceiverUpdate):
 )
 def compute_paths(params: PathComputationRequest):
     try:
-        result = main.compute_paths(params.max_depth)
+        result = main.compute_paths(params.max_depth, params.num_samples)
         return PathComputationResponse(
             path_count=result["path_count"], max_depth=result["max_depth"]
         )

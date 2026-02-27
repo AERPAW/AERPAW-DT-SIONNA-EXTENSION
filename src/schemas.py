@@ -114,12 +114,12 @@ class PathComputationRequest(BaseModel):
         3, ge=1, le=10, description="Maximum number of reflections/diffractions"
     )
     num_samples: int = Field(
-        1e5, ge=1, le=1e8, description="Number of ray used in path computation"
+        1e5, ge=1, le=1e8, description="Number of rays used in path computation"
     )
 
 
 class PathComputationResponse(BaseModel):
-    """Paths are only qualitified via the channel impulse response, not this response"""
+    """Paths are only quantified via the channel impulse response, not this response"""
     
     path_count: int
     max_depth: int
@@ -169,6 +169,15 @@ class SceneInfoResponse(BaseModel):
 class ScenesResponse(BaseModel):
    scene_count: int
    scenes: List[SceneInfoResponse]
+
+
+class ReferenceFrameResponse(BaseModel):
+    origin_lat: float
+    origin_lon: float
+    origin_alt: float
+    x_direction: str
+    y_direction: str
+    z_direction: str
 
 
 class MessageResponse(BaseModel):

@@ -46,6 +46,11 @@ def get_scene_info() -> Dict:
     return engines[0].get_scene_info()
 
 
+def get_reference_frame() -> Dict:
+    """Get information about the Sionna reference frame"""
+    return engines[0].get_reference_frame()
+
+
 def reset_scene() -> None:
     """Reset the scene to initial state."""
     engines[0].reset()
@@ -178,9 +183,9 @@ def set_array(
     }
 
 
-def compute_paths(max_depth: int = 3) -> Dict:
+def compute_paths(max_depth: int = 3, num_samples: int = 10e5) -> Dict:
     """Compute propagation paths between transmitters and receivers."""
-    return engines[0].compute_paths(max_depth)
+    return engines[0].compute_paths(max_depth, num_samples)
 
 
 def get_cir() -> Dict:

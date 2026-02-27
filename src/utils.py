@@ -1,8 +1,12 @@
 from sionna.rt import PlanarArray
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Final, Dict, List
 from enum import Enum
-from sionna_wrapper import ORIGIN_SCENE
 
+
+# Position of LW1 in lat/lon/alt
+ORIGIN_LAT_LON: Final[Dict[str, float]] = {"lat": 35.72750947, "lon": -78.69595819, "alt": 82.973}
+# Position of LW1 in the Sionna coordinate system (x, y, z) in meters
+ORIGIN_SCENE: Final[List[float]] = [2021, 1974, 123]
 
 class CoordinateTransform():
     """
@@ -10,13 +14,13 @@ class CoordinateTransform():
     """
 
     @classmethod
-    def to_sionna(pos: Tuple[float, float, float]) -> Tuple[float, float, float]:
-        return (pos[i] + ORIGIN_SCENE[i] for i in range(3))
+    def to_sionna(cls, pos: Tuple[float, float, float]) -> Tuple[float, float, float]:
+        return tuple([pos[i] + ORIGIN_SCENE[i] for i in range(3)])
 
 
     @classmethod
-    def from_sionna(pos: Tuple[float, float, float]) -> Tuple[float, float, float]:
-        return (pos[i] - ORIGIN_SCENE[i] for i in range(3))
+    def from_sionna(cls, pos: Tuple[float, float, float]) -> Tuple[float, float, float]:
+        return tuple([pos[i] - ORIGIN_SCENE[i] for i in range(3)])
 
 
 class AntennaType(Enum):
