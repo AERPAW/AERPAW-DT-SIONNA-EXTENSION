@@ -82,6 +82,17 @@ class SceneInfoResponse(BaseModel):
     receiver_count: int
 
 
+class SceneCreateRequest(BaseModel):
+    scene_path: Optional[str] = Field(
+        None, description="Optional custom scene path. Defaults to bundled Sionna scene."
+    )
+
+
+class SceneCreateResponse(BaseModel):
+    scene_id: str
+    message: str = "Scene created successfully"
+
+
 class MessageResponse(BaseModel):
     message: str
 
