@@ -3,7 +3,20 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
-class Position(BaseModel):
+class GeoPosition(BaseModel):
+    lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude in degrees")
+    lon: float = Field(..., ge=-180.0, le=180.0, description="Longitude in degrees")
+    alt: float = Field(..., description="Altitude in meters")
+
+    def to_tuple(self):
+        return (self.lat, self.lon, self.alt)
+
+    @classmethod
+    def from_tuple(cls, pos: tuple):
+        return cls(lat=pos[0], lon=pos[1], alt=pos[2])
+
+
+class Orientation(BaseModel):
     x: float
     y: float
     z: float
@@ -18,19 +31,19 @@ class Position(BaseModel):
 
 class DeviceCreate(BaseModel):
     name: str = Field(..., description="Unique identifier for the device")
-    position: Position
-    orientation: Optional[Position] = None
+    position: GeoPosition
+    orientation: Optional[Orientation] = None
 
 
 class DeviceUpdate(BaseModel):
-    position: Position
-    orientation: Optional[Position] = None
+    position: GeoPosition
+    orientation: Optional[Orientation] = None
 
 
 class DeviceResponse(BaseModel):
     name: str
-    position: Position
-    orientation: Optional[Position] = None
+    position: GeoPosition
+    orientation: Optional[Orientation] = None
 
 
 class PathComputationRequest(BaseModel):
@@ -80,6 +93,9 @@ class SceneInfoResponse(BaseModel):
     objects: List[str]
     transmitter_count: int
     receiver_count: int
+    coordinate_reference: GeoPosition = Field(
+        description="Lat/lon/alt origin used for local Sionna coordinate conversion"
+    )
 
 
 class SceneCreateRequest(BaseModel):

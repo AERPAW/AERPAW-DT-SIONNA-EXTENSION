@@ -12,7 +12,7 @@ if str(SRC_DIR) not in sys.path:
 
 import app as app_module  # noqa: E402
 import main  # noqa: E402
-from utils import AntennaType  # noqa: E402
+from utils import AntennaType, CoordinateConverter, CoordinateReference  # noqa: E402
 
 
 class FakeSionna:
@@ -112,6 +112,11 @@ def patched_backend(monkeypatch):
     monkeypatch.setattr(main, "Sionna", FakeSionna)
     monkeypatch.setattr(main, "factory", main.SionnaFactory())
     monkeypatch.setattr(main, "gpu_dispatcher", None)
+    monkeypatch.setattr(
+        main,
+        "coordinate_converter",
+        CoordinateConverter(CoordinateReference(lat=35.727, lon=-78.696, alt=110.0)),
+    )
     return main.factory
 
 
@@ -147,6 +152,14 @@ def test_create_scene_returns_unique_scene_ids(client):
     assert scene_b
     assert scene_a != scene_b
 
+    scene_info = client.get(f"/scenes/{scene_a}")
+    assert scene_info.status_code == 200
+    assert scene_info.json()["coordinate_reference"] == {
+        "lat": 35.727,
+        "lon": -78.696,
+        "alt": 110.0,
+    }
+
 
 def test_scene_updates_are_isolated_by_scene_id(client):
     scene_a = client.post("/scenes", json={}).json()["scene_id"]
@@ -154,7 +167,7 @@ def test_scene_updates_are_isolated_by_scene_id(client):
 
     add_tx_response = client.post(
         f"/scenes/{scene_a}/transmitters",
-        json={"name": "tx1", "position": {"x": 0, "y": 0, "z": 10}},
+        json={"name": "tx1", "position": {"lat": 35.0, "lon": -78.0, "alt": 110.0}},
     )
     assert add_tx_response.status_code == 201
 

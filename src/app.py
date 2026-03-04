@@ -11,10 +11,11 @@ from schemas import (
     DeviceCreate,
     DeviceResponse,
     DeviceUpdate,
+    GeoPosition,
     MessageResponse,
+    Orientation,
     PathComputationRequest,
     PathComputationResponse,
-    Position,
     SceneCreateRequest,
     SceneCreateResponse,
     SceneInfoResponse,
@@ -115,9 +116,9 @@ async def add_tx(scene_id: str, device: DeviceCreate):
         )
         return DeviceResponse(
             name=result["name"],
-            position=Position.from_tuple(result["position"]),
+            position=GeoPosition.from_tuple(result["position"]),
             orientation=(
-                Position.from_tuple(result["orientation"])
+                Orientation.from_tuple(result["orientation"])
                 if result.get("orientation")
                 else None
             ),
@@ -162,7 +163,7 @@ async def update_tx(scene_id: str, name: str, update_data: DeviceUpdate):
             scene_id, name, update_data.position.to_tuple()
         )
         return DeviceResponse(
-            name=result["name"], position=Position.from_tuple(result["position"])
+            name=result["name"], position=GeoPosition.from_tuple(result["position"])
         )
     except main.SceneNotFoundError:
         _raise_scene_not_found(scene_id)
@@ -195,9 +196,9 @@ async def add_rx(scene_id: str, device: DeviceCreate):
         )
         return DeviceResponse(
             name=result["name"],
-            position=Position.from_tuple(result["position"]),
+            position=GeoPosition.from_tuple(result["position"]),
             orientation=(
-                Position.from_tuple(result["orientation"])
+                Orientation.from_tuple(result["orientation"])
                 if result.get("orientation")
                 else None
             ),
@@ -242,7 +243,7 @@ async def update_rx(scene_id: str, name: str, update_data: DeviceUpdate):
             scene_id, name, update_data.position.to_tuple()
         )
         return DeviceResponse(
-            name=result["name"], position=Position.from_tuple(result["position"])
+            name=result["name"], position=GeoPosition.from_tuple(result["position"])
         )
     except main.SceneNotFoundError:
         _raise_scene_not_found(scene_id)
