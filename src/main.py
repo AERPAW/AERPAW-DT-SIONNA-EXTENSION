@@ -6,7 +6,6 @@ from gpu_load_balancer import GpuLoadBalancerService
 from sionna_wrapper import Sionna
 from utils import (
     AntennaType,
-    CoordinateConverter,
     PolarizationType,
     RadiationPattern,
 )
@@ -44,7 +43,6 @@ class SionnaFactory:
 
 factory = SionnaFactory()
 gpu_dispatcher: Optional[GpuLoadBalancerService] = None
-coordinate_converter = CoordinateConverter.from_env()
 
 
 def _configured_gpu_ids() -> List[str]:
@@ -61,14 +59,6 @@ def _require_dispatcher() -> GpuLoadBalancerService:
 
 async def _dispatch(scene_id: str, fn, *args, **kwargs):
     return await _require_dispatcher().dispatch(scene_id, fn, *args, **kwargs)
-
-
-def _geo_to_local(position: Tuple[float, float, float]) -> Tuple[float, float, float]:
-    return coordinate_converter.lat_lon_alt_to_local(*position)
-
-
-def _local_to_geo(position: Tuple[float, float, float]) -> Tuple[float, float, float]:
-    return coordinate_converter.local_to_lat_lon_alt(*position)
 
 
 async def initialize() -> None:
@@ -107,13 +97,7 @@ async def create_scene(scene_path: Optional[str] = None) -> str:
 async def get_scene_info(scene_id: str) -> Dict:
     """Get information about a specific scene."""
     engine = factory.get_scene(scene_id)
-    scene_info = await _dispatch(scene_id, engine.get_scene_info)
-    scene_info["coordinate_reference"] = {
-        "lat": coordinate_converter.reference.lat,
-        "lon": coordinate_converter.reference.lon,
-        "alt": coordinate_converter.reference.alt,
-    }
-    return scene_info
+    return await _dispatch(scene_id, engine.get_scene_info)
 
 
 async def reset_scene(scene_id: str) -> None:
@@ -132,11 +116,10 @@ async def add_transmitter(
 ) -> Dict:
     """Add a transmitter to a specific scene."""
     engine = factory.get_scene(scene_id)
-    local_position = _geo_to_local(position)
 
     def _add() -> Dict:
-        engine.add_transmitter(name, local_position, orientation)
-        result = {"name": name, "position": _local_to_geo(local_position)}
+        engine.add_transmitter(name, position, orientation)
+        result = {"name": name, "position": position}
         if orientation:
             result["orientation"] = orientation
         return result
@@ -149,11 +132,10 @@ async def update_transmitter_position(
 ) -> Dict:
     """Update the position of an existing transmitter in a scene."""
     engine = factory.get_scene(scene_id)
-    local_position = _geo_to_local(position)
 
     def _update() -> Dict:
-        engine.update_ant_position(AntennaType.Transmitter, name, local_position)
-        return {"name": name, "position": _local_to_geo(local_position)}
+        engine.update_ant_position(AntennaType.Transmitter, name, position)
+        return {"name": name, "position": position}
 
     return await _dispatch(scene_id, _update)
 
@@ -173,11 +155,10 @@ async def add_receiver(
 ) -> Dict:
     """Add a receiver to a specific scene."""
     engine = factory.get_scene(scene_id)
-    local_position = _geo_to_local(position)
 
     def _add() -> Dict:
-        engine.add_receiver(name, local_position, orientation)
-        result = {"name": name, "position": _local_to_geo(local_position)}
+        engine.add_receiver(name, position, orientation)
+        result = {"name": name, "position": position}
         if orientation:
             result["orientation"] = orientation
         return result
@@ -190,11 +171,10 @@ async def update_receiver_position(
 ) -> Dict:
     """Update the position of an existing receiver in a scene."""
     engine = factory.get_scene(scene_id)
-    local_position = _geo_to_local(position)
 
     def _update() -> Dict:
-        engine.update_ant_position(AntennaType.Receiver, name, local_position)
-        return {"name": name, "position": _local_to_geo(local_position)}
+        engine.update_ant_position(AntennaType.Receiver, name, position)
+        return {"name": name, "position": position}
 
     return await _dispatch(scene_id, _update)
 

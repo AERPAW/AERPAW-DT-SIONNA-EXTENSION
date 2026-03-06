@@ -1,7 +1,5 @@
 from typing import Any, Dict, List, Optional
-
 from pydantic import BaseModel, Field
-
 from utils import AntennaArrayType, AntennaType, RadiationPattern, PolarizationType
 
 
@@ -18,7 +16,7 @@ class GeoPosition(BaseModel):
         return cls(lat=pos[0], lon=pos[1], alt=pos[2])
 
 
-class Orientation(BaseModel):
+class Vector3D(BaseModel):
     x: float
     y: float
     z: float
@@ -79,18 +77,47 @@ class TransmitterCreate(BaseModel):
     """
     name: str = Field(..., description="Unique identifier for the device")
     position: GeoPosition
-    orientation: Optional[Orientation] = None
+    signal_power: float
+    velocity: Optional[Vector3D] = Vector3D(x=0, y=0, z=0)  # Used for doppler effects
+    orientation: Optional[Vector3D] = None
 
 
-class DeviceUpdate(BaseModel):
+class TransmitterUpdate(BaseModel):
+    """
+    Updates all the parameters of a transmitter object by name
+    """
+    position: Optional[GeoPosition] = None
+    signal_power: Optional[float] = None
+    velocity: Optional[Vector3D] = None
+    orientation: Optional[Vector3D] = None
+
+
+class ReceiverCreate(BaseModel):
+    """
+    Creates a new receiver in the scene
+    """
+    name: str = Field(..., description="Unique identifier for the device")
     position: GeoPosition
-    orientation: Optional[Orientation] = None
+    velocity: Optional[Vector3D] = Vector3D(x=0, y=0, z=0)  # Used for doppler effects
+    orientation: Optional[Vector3D] = None
+
+
+class ReceiverUpdate(BaseModel):
+    """
+    Update all the parameters of a receiver in the scene
+    """
+    position: Optional[GeoPosition] = None
+    velocity: Optional[Vector3D] = None
+    orientation: Optional[Vector3D] = None
 
 
 class DeviceResponse(BaseModel):
     name: str
+    type: str
     position: GeoPosition
-    orientation: Optional[Orientation] = None
+    velocity: Optional[Vector3D] = Vector3D(x=0, y=0, z=0)  # Used for doppler effects
+    signal_power: Optional[float] = None
+    orientation: Optional[Vector3D] = None
 
 
 class PathComputationRequest(BaseModel):

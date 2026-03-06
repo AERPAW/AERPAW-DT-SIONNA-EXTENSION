@@ -108,6 +108,7 @@ class Sionna:
             "tx_array": tx_array,
             "rx_array": rx_array,
             "temperature": self.scene.temperature[0],
+            "coordinate_reference": self._coordinate_converter.get_origin(),
         }
     
 
