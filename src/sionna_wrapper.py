@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Tuple, Final
+from typing import Dict, Optional, Tuple, Final, Any
 from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType, CoordinateConverter
 import mitsuba as mi
 
@@ -29,8 +29,8 @@ from sionna.rt import (
 )
 
 # Default values for scene paths
-SCENE: Final[str] = "../data/scenes/lake-wheeler-scene.xml"
-# SCENE: Final[str] = "/app/scenes/lake-wheeler-scene.xml"
+# SCENE: Final[str] = "../data/scenes/lake-wheeler-scene.xml"
+SCENE: Final[str] = "/app/scenes/lake-wheeler-scene.xml"
 
 # Default values for scene parameters
 TEMPERATURE: Final[float] = 300.0  # Temperaure in Kelvin
@@ -55,7 +55,7 @@ class Sionna:
 
 
     def initialize(self, 
-                   env: mi.ThreadEnvironment,
+                   env: Any,
                    scene_path: Optional[str] = None,
                    scene_origin: Optional[Dict[str, float]] = None,
                    temperature: Optional[float] = TEMPERATURE,
