@@ -64,7 +64,8 @@ def root():
 )
 async def create_scene(payload: Optional[SceneCreateRequest] = None):
     try:
-        scene_id = await main.create_scene(payload.scene_path if payload else None,
+        scene_id = await main.create_scene(payload.scene_origin if payload else None,
+                                           payload.scene_path.to_tuple() if payload else None,
                                            payload.temperature if payload else None,
                                            payload.bandwidth if payload else None,
                                            payload.tx_array.to_type() if payload else None,

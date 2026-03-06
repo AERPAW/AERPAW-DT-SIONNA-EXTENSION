@@ -134,6 +134,7 @@ class PathComputationResponse(BaseModel):
     
     path_count: int
     max_depth: int
+    num_samples: int
     message: str = "Paths computed successfully"
 
 
@@ -181,6 +182,11 @@ class SceneCreateRequest(BaseModel):
     scene_path: Optional[str] = Field(
         None, description="Optional custom scene path. Defaults to bundled Sionna scene."
     )
+    scene_origin: Optional[GeoPosition] = None
+    temperature: Optional[float] = None
+    bandwidth: Optional[float] = None
+    tx_array: Optional[float] = None
+    rx_array: Optional[float] = None
 
 
 class SceneCreateResponse(BaseModel):

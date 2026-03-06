@@ -1,11 +1,14 @@
 import os
 from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
+import mitsuba as mi
+mi.set_variant("cuda_ad_rgb")
 
 from gpu_load_balancer import GpuLoadBalancerService
 from sionna_wrapper import Sionna
 from utils import (
     AntennaType,
+    AntennaArrayType,
     PolarizationType,
     RadiationPattern,
 )
@@ -82,12 +85,26 @@ async def shutdown() -> None:
     factory.shutdown()
 
 
-async def create_scene(scene_path: Optional[str] = None) -> str:
+async def create_scene(scene_path: Optional[str] = None,
+                       scene_origin: Optional[Dict[str, float]] = None,
+                       temperature: Optional[float] = None,
+                       bandwidth: Optional[float] = None,
+                       tx_array: Optional[AntennaArrayType] = None,
+                       rx_array: Optional[AntennaArrayType] = None) -> str:
     """Create, load, and register a new scene instance."""
     scene_id = factory.create_scene()
     engine = factory.get_scene(scene_id)
     try:
-        await _dispatch(scene_id, engine.load_simulation_scene, scene_path)
+        env = mi.ThreadEnvironment()
+        await _dispatch(scene_id, 
+                        engine.initialize,
+                        env, 
+                        scene_path, 
+                        {"lat": scene_origin[0], "lon": scene_origin[1], "alt": scene_origin[2]},
+                        temperature,
+                        bandwidth,
+                        tx_array,
+                        rx_array)
     except Exception:
         factory.delete_scene(scene_id)
         raise
@@ -118,24 +135,30 @@ async def add_transmitter(
     engine = factory.get_scene(scene_id)
 
     def _add() -> Dict:
-        engine.add_transmitter(name, position, orientation)
-        result = {"name": name, "position": position}
-        if orientation:
-            result["orientation"] = orientation
-        return result
+        orientation_result = engine.add_transmitter(name, position, signal_power,
+                                                    velocity, orientation)
+        return {"name": name, "position": position,
+                "signal_power": signal_power, 
+                "velocity": velocity, "orientation": orientation_result}
 
     return await _dispatch(scene_id, _add)
 
 
-async def update_transmitter_position(
-    scene_id: str, name: str, position: Tuple[float, float, float]
+async def update_transmitter(
+    scene_id: str, name: str, 
+    position: Optional[Tuple[float, float, float]] = None,
+    signal_power: Optional[float] = None,
+    velocity: Optional[Tuple[float, float, float]] = None,
+    orientation: Optional[Tuple[float, float, float]] = None,
 ) -> Dict:
     """Update the position of an existing transmitter in a scene."""
     engine = factory.get_scene(scene_id)
 
     def _update() -> Dict:
-        engine.update_ant_position(AntennaType.Transmitter, name, position)
-        return {"name": name, "position": position}
+        engine.update_transmitter(name, position, signal_power, velocity, orientation)
+        return {"name": name, "position": position,
+                "signal_power": signal_power, 
+                "velocity": velocity, "orientation": orientation}
 
     return await _dispatch(scene_id, _update)
 
@@ -157,24 +180,26 @@ async def add_receiver(
     engine = factory.get_scene(scene_id)
 
     def _add() -> Dict:
-        engine.add_receiver(name, position, orientation)
-        result = {"name": name, "position": position}
-        if orientation:
-            result["orientation"] = orientation
-        return result
+        orientation_result = engine.add_receiver(name, position, velocity, orientation)
+        return {"name": name, "position": position,
+                "velocity": velocity, "orientation": orientation_result}
 
     return await _dispatch(scene_id, _add)
 
 
-async def update_receiver_position(
-    scene_id: str, name: str, position: Tuple[float, float, float]
+async def update_receiver(
+    scene_id: str, name: str, 
+    position: Optional[Tuple[float, float, float]] = None,
+    velocity: Optional[Tuple[float, float, float]] = None,
+    orientation: Optional[Tuple[float, float, float]] = None,
 ) -> Dict:
     """Update the position of an existing receiver in a scene."""
     engine = factory.get_scene(scene_id)
 
     def _update() -> Dict:
-        engine.update_ant_position(AntennaType.Receiver, name, position)
-        return {"name": name, "position": position}
+        engine.update_receiver(name, position, velocity, orientation)
+        return {"name": name, "position": position,
+                "velocity": velocity, "orientation": orientation}
 
     return await _dispatch(scene_id, _update)
 
@@ -253,10 +278,10 @@ async def set_array(
     }
 
 
-async def compute_paths(scene_id: str, max_depth: int = 3) -> Dict:
+async def compute_paths(scene_id: str, max_depth: int = 3, num_samples: int = 1e5) -> Dict:
     """Compute propagation paths between transmitters and receivers in a scene."""
     engine = factory.get_scene(scene_id)
-    return await _dispatch(scene_id, engine.compute_paths, max_depth)
+    return await _dispatch(scene_id, engine.compute_paths, max_depth, num_samples)
 
 
 async def get_cir(scene_id: str) -> Dict:
