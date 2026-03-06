@@ -1,17 +1,17 @@
-### Sionna Interface with FastAPI endpoints 
+### Sionna Interface for AERPAW Digital Twin
 
-This code provides fastAPI endpoints, a sionna wrapper and controller system that act together to provide following functionality:
+This tool provides fastAPI endpoints, a sionna wrapper and controller system that act together to provide following functionality:
 - Load scene
 - Reset
 - Add, update, remove Transmitter/Receiver
 - calculate paths and CIR
 
-For schemas and the data format for endpoints, refer to schemas.py or FastAPI docs. 
+For api reference, refer to schemas.py or FastAPI docs. 
 
 #### Setup
 ##### Basic Setup
 To get the repository up and running:
-1) Clone this repository: `git clone git@github.com:sushant-XD/aerpaw_sionna.git`
+1) Clone this repository: `git clone git@github.com:AERPAW/AERPAW-DT-SIONNA-EXTENSION.git`
 2) Go to the directory: `cd aerpaw_sionna`
 3) Create a virtual environment and activate it: `python -m venv venv && source venv/bin/activate`
 4) Install the required dependencies: `pip install -r requirements.txt`
@@ -30,4 +30,3 @@ siona_wrapper.py -- wrapper class to sionna providing core functionality
 schemas.py -- schemas (pydantic) for API 
 utils.py -- utility functions and enum classes
 Docker-compose and Dockerfile -- Docker setup and configuration
-
