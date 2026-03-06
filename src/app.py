@@ -1,22 +1,40 @@
 from contextlib import asynccontextmanager
-
+from typing import List, Optional
 from fastapi import FastAPI, HTTPException, status
 
 import main
-from schemas import *
+from schemas import (
+    CirGains,
+    CirResponse,
+    CirShape,
+    TransmitterCreate,
+    TransmitterUpdate,
+    ReceiverCreate,
+    ReceiverUpdate,
+    DeviceResponse,
+    GeoPosition,
+    MessageResponse,
+    Vector3D,
+    PathComputationRequest,
+    PathComputationResponse,
+    SceneCreateRequest,
+    SceneCreateResponse,
+    SceneInfoResponse,
+    StatusResponse,
+)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Starting Sionna simulation...")
     try:
-        main.initialize()
+        await main.initialize()
     except Exception as e:
         print(f"Failed to initialize: {e}")
         raise
     yield
     print("Shutting down...")
-    main.shutdown()
+    await main.shutdown()
 
 
 app = FastAPI(
@@ -27,15 +45,45 @@ app = FastAPI(
 )
 
 
+def _raise_scene_not_found(scene_id: str):
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND, detail=f"Scene '{scene_id}' not found"
+    )
+
+
 @app.get("/", response_model=StatusResponse, tags=["Health"])
 def root():
     return StatusResponse(status="running")
 
 
-@app.get("/scene", response_model=SceneInfoResponse, tags=["Scene"])
-def get_scene():
+@app.post(
+    "/scenes",
+    response_model=SceneCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Scene"],
+)
+async def create_scene(payload: Optional[SceneCreateRequest] = None):
     try:
-        return main.get_scene_info()
+        scene_id = await main.create_scene(payload.scene_path if payload else None,
+                                           payload.temperature if payload else None,
+                                           payload.bandwidth if payload else None,
+                                           payload.tx_array.to_type() if payload else None,
+                                           payload.rx_array.to_type() if payload else None)
+        return SceneCreateResponse(scene_id=scene_id)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create scene: {str(e)}",
+        )
+
+
+@app.put("/scenes/{scene_id}/update_origin", response_model=GeoPosition, tags=["Scene"])
+async def update_origin(scene_id: str, new_origin: GeoPosition):
+    try:
+        result = await main.update_origin(scene_id, GeoPosition.to_tuple(new_origin))
+        return GeoPosition.from_tuple(result)
+    except main.SceneNotFoundError:
+        _raise_scene_not_found(scene_id)
     except RuntimeError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -43,11 +91,26 @@ def get_scene():
         )
 
 
-@app.post("/scene/reset", response_model=MessageResponse, tags=["Scene"])
-def reset_scene():
+@app.get("/scenes/{scene_id}", response_model=SceneInfoResponse, tags=["Scene"])
+async def get_scene(scene_id: str):
     try:
-        main.reset_scene()
+        return await main.get_scene_info(scene_id)
+    except main.SceneNotFoundError:
+        _raise_scene_not_found(scene_id)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve scene info: {str(e)}",
+        )
+
+
+@app.post("/scenes/{scene_id}/reset", response_model=MessageResponse, tags=["Scene"])
+async def reset_scene(scene_id: str):
+    try:
+        await main.reset_scene(scene_id)
         return MessageResponse(message="Scene reset successfully")
+    except main.SceneNotFoundError:
+        _raise_scene_not_found(scene_id)
     except RuntimeError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -56,28 +119,32 @@ def reset_scene():
 
 
 @app.post(
-    "/transmitters",
+    "/scenes/{scene_id}/transmitters",
     response_model=DeviceResponse,
     status_code=status.HTTP_201_CREATED,
     tags=["Transmitters"],
 )
-def add_tx(device: DeviceCreate):
-    """Add a new transmitter to the scene"""
+async def add_tx(scene_id: str, device: TransmitterCreate):
+    """Add a new transmitter to the scene."""
     try:
-        result = main.add_transmitter(
+        result = await main.add_transmitter(
+            scene_id,
             device.name,
             device.position.to_tuple(),
+            device.signal_power,
+            device.velocity.to_tuple(),
             device.orientation.to_tuple() if device.orientation else None,
         )
         return DeviceResponse(
             name=result["name"],
-            position=Position.from_tuple(result["position"]),
-            orientation=(
-                Position.from_tuple(result["orientation"])
-                if result.get("orientation")
-                else None
-            ),
+            type="tx",
+            position=GeoPosition.from_tuple(result["position"]),
+            velocity=Vector3D.from_tuple(pos=result["velocity"]),
+            signal_power=result["signal_power"],
+            orientation=Vector3D.from_tuple(result["orientation"]),
         )
+    except main.SceneNotFoundError:
+        _raise_scene_not_found(scene_id)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -90,11 +157,13 @@ def add_tx(device: DeviceCreate):
         )
 
 
-@app.get("/transmitters", response_model=List[str], tags=["Transmitters"])
-def list_tx():
-    """List all transmitters in the scene"""
+@app.get("/scenes/{scene_id}/transmitters", response_model=List[str], tags=["Transmitters"])
+async def list_tx(scene_id: str):
+    """List all transmitters in the scene."""
     try:
-        return main.get_transmitters()
+        return await main.get_transmitters(scene_id)
+    except main.SceneNotFoundError:
+        _raise_scene_not_found(scene_id)
     except RuntimeError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -102,15 +171,33 @@ def list_tx():
         )
 
 
-@app.put("/transmitters/{name}", response_model=DeviceResponse, tags=["Transmitters"])
-def update_tx(name: str, update_data: DeviceUpdate):
-    """Update transmitter position"""
+@app.put(
+    "/scenes/{scene_id}/transmitters/{name}",
+    response_model=DeviceResponse,
+    tags=["Transmitters"],
+)
+async def update_tx(scene_id: str, name: str, data: TransmitterUpdate):
+    """Update transmitter position."""
     try:
-        result = main.update_transmitter_position(name, update_data.position.to_tuple())
-        return DeviceResponse(
-            name=result["name"], position=Position.from_tuple(result["position"])
+        result = await main.update_transmitter(
+            scene_id,
+            name, 
+            data.position.to_tuple() if data.position else None,
+            data.signal_power,
+            data.velocity.to_tuple() if data.velocity else None,
+            data.orientation.to_tuple() if data.orientation else None,
         )
-    except ValueError as e:
+        return DeviceResponse(
+            name=result["name"], 
+            type="tx",
+            position=GeoPosition.from_tuple(result["position"]) if result["position"] else None,
+            velocity=Vector3D.from_tuple(result["velocity"]) if result["velocity"] else None,
+            signal_power=result["signal_power"],
+            orientation=Vector3D.from_tuple(result["orientation"]) if result["orientation"] else None,
+        )
+    except main.SceneNotFoundError:
+        _raise_scene_not_found(scene_id)
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Transmitter '{name}' not found",
@@ -123,28 +210,31 @@ def update_tx(name: str, update_data: DeviceUpdate):
 
 
 @app.post(
-    "/receivers",
+    "/scenes/{scene_id}/receivers",
     response_model=DeviceResponse,
     status_code=status.HTTP_201_CREATED,
     tags=["Receivers"],
 )
-def add_rx(device: DeviceCreate):
-    """Add a new receiver to the scene"""
+async def add_rx(scene_id: str, device: ReceiverCreate):
+    """Add a new receiver to the scene."""
     try:
-        result = main.add_receiver(
+        result = await main.add_receiver(
+            scene_id,
             device.name,
             device.position.to_tuple(),
+            device.velocity.to_tuple(),
             device.orientation.to_tuple() if device.orientation else None,
         )
         return DeviceResponse(
             name=result["name"],
-            position=Position.from_tuple(result["position"]),
-            orientation=(
-                Position.from_tuple(result["orientation"])
-                if result.get("orientation")
-                else None
-            ),
+            type="rx",
+            position=GeoPosition.from_tuple(result["position"]),
+            signal_power=None,
+            velocity=Vector3D.from_tuple(result["velocity"]),
+            orientation=Vector3D.from_tuple(result["orientation"]),
         )
+    except main.SceneNotFoundError:
+        _raise_scene_not_found(scene_id)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -157,11 +247,13 @@ def add_rx(device: DeviceCreate):
         )
 
 
-@app.get("/receivers", response_model=List[str], tags=["Receivers"])
-def list_rx():
-    """List all receivers in the scene"""
+@app.get("/scenes/{scene_id}/receivers", response_model=List[str], tags=["Receivers"])
+async def list_rx(scene_id: str):
+    """List all receivers in the scene."""
     try:
-        return main.get_receivers()
+        return await main.get_receivers(scene_id)
+    except main.SceneNotFoundError:
+        _raise_scene_not_found(scene_id)
     except RuntimeError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -169,15 +261,32 @@ def list_rx():
         )
 
 
-@app.put("/receivers/{name}", response_model=DeviceResponse, tags=["Receivers"])
-def update_rx(name: str, update_data: DeviceUpdate):
-    """Update receiver position"""
+@app.put(
+    "/scenes/{scene_id}/receivers/{name}",
+    response_model=DeviceResponse,
+    tags=["Receivers"],
+)
+async def update_rx(scene_id: str, name: str, data: ReceiverUpdate):
+    """Update receiver position."""
     try:
-        result = main.update_receiver_position(name, update_data.position.to_tuple())
-        return DeviceResponse(
-            name=result["name"], position=Position.from_tuple(result["position"])
+        result = await main.update_receiver(
+            scene_id,
+            name, 
+            data.position.to_tuple() if data.position else None,
+            data.velocity.to_tuple() if data.velocity else None,
+            data.orientation.to_tuple() if data.orientation else None,
         )
-    except ValueError as e:
+        return DeviceResponse(
+            name=result["name"], 
+            type="rx",
+            position=GeoPosition.from_tuple(result["position"]),
+            signal_power=None,
+            velocity=Vector3D.from_tuple(result["velocity"]),
+            orientation=Vector3D.from_tuple(result["orientation"]),
+        )
+    except main.SceneNotFoundError:
+        _raise_scene_not_found(scene_id)
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Receiver '{name}' not found"
         )
@@ -189,14 +298,20 @@ def update_rx(name: str, update_data: DeviceUpdate):
 
 
 @app.post(
-    "/simulation/paths", response_model=PathComputationResponse, tags=["Simulation"]
+    "/scenes/{scene_id}/simulation/paths",
+    response_model=PathComputationResponse,
+    tags=["Simulation"],
 )
-def compute_paths(params: PathComputationRequest):
+async def compute_paths(scene_id: str, params: PathComputationRequest):
     try:
-        result = main.compute_paths(params.max_depth)
+        result = await main.compute_paths(scene_id, params.max_depth, params.num_samples)
         return PathComputationResponse(
-            path_count=result["path_count"], max_depth=result["max_depth"]
+            path_count=result["path_count"], 
+            max_depth=result["max_depth"],
+            num_samples=result["num_samples"],
         )
+    except main.SceneNotFoundError:
+        _raise_scene_not_found(scene_id)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -209,17 +324,18 @@ def compute_paths(params: PathComputationRequest):
         )
 
 
-
-@app.get("/simulation/cir", response_model=CirResponse)
-def get_cir():
-    """Retrieve the Channel Impulse Response (CIR)"""
+@app.get("/scenes/{scene_id}/simulation/cir", response_model=CirResponse)
+async def get_cir(scene_id: str):
+    """Retrieve the Channel Impulse Response (CIR)."""
     try:
-        result = main.get_cir()
+        result = await main.get_cir(scene_id)
         return CirResponse(
             delays=result["delays"],
             gains=CirGains(**result["gains"]),
             shape=CirShape(**result["shape"]),
         )
+    except main.SceneNotFoundError:
+        _raise_scene_not_found(scene_id)
     except RuntimeError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

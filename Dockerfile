@@ -17,11 +17,19 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-  pip install --no-cache-dir -r requirements.txt
+# Removed --no-cache-dir for development
+RUN pip install --upgrade pip && \
+  pip install -r requirements.txt
 
 # Copy application source code
 COPY src/ ./src/
+
+# Adding Scene Files
+COPY data/scenes/lake-wheeler-scene.xml /app/scenes/
+COPY data/scenes/meshes/lake-wheeler-building-roofs-output.ply /app/scenes/meshes/
+COPY data/scenes/meshes/lake-wheeler-building-roofs-shaped-output.ply /app/scenes/meshes/
+COPY data/scenes/meshes/lake-wheeler-building-walls-output.ply /app/scenes/meshes/
+COPY data/scenes/meshes/terrain-mesh-small-output.ply /app/scenes/meshes/
 
 # Set Python path to include src directory
 ENV PYTHONPATH=/app/src:$PYTHONPATH
