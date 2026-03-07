@@ -95,12 +95,13 @@ async def create_scene(scene_path: Optional[str] = None,
     scene_id = factory.create_scene()
     engine = factory.get_scene(scene_id)
     try:
-        env = mi.ThreadEnvironment()
+        env_factory = getattr(mi, "ThreadEnvironment", None)
+        env = env_factory() if env_factory else None
         await _dispatch(scene_id, 
                         engine.initialize,
                         env, 
                         scene_path, 
-                        {"lat": scene_origin[0], "lon": scene_origin[1], "alt": scene_origin[2]},
+                        scene_origin,
                         temperature,
                         bandwidth,
                         tx_array,

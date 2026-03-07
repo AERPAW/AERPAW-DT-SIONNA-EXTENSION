@@ -64,12 +64,14 @@ def root():
 )
 async def create_scene(payload: Optional[SceneCreateRequest] = None):
     try:
-        scene_id = await main.create_scene(payload.scene_origin if payload else None,
-                                           payload.scene_path.to_tuple() if payload else None,
-                                           payload.temperature if payload else None,
-                                           payload.bandwidth if payload else None,
-                                           payload.tx_array.to_type() if payload else None,
-                                           payload.rx_array.to_type() if payload else None)
+        scene_id = await main.create_scene(
+            scene_path=payload.scene_path if payload else None,
+            scene_origin=payload.scene_origin.model_dump() if payload and payload.scene_origin else None,
+            temperature=payload.temperature if payload else None,
+            bandwidth=payload.bandwidth if payload else None,
+            tx_array=payload.tx_array.to_class() if payload and payload.tx_array else None,
+            rx_array=payload.rx_array.to_class() if payload and payload.rx_array else None,
+        )
         return SceneCreateResponse(scene_id=scene_id)
     except RuntimeError as e:
         raise HTTPException(

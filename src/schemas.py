@@ -47,13 +47,15 @@ class AntennaArrayConfig(BaseModel):
     )
 
     def to_class(self):
-        return AntennaArrayType(self.antenna_type, 
-                                self.num_rows, 
-                                self.num_cols, 
-                                self.vertical_spacing, 
-                                self.horizontal_spacing, 
-                                self.pattern, 
-                                self.polarization)
+        return AntennaArrayType(
+            AntennaType.to_enum(self.antenna_type),
+            self.num_rows,
+            self.num_cols,
+            self.horizontal_spacing,
+            self.vertical_spacing,
+            RadiationPattern(self.pattern),
+            PolarizationType(self.polarization),
+        )
 
     @classmethod
     def from_class(self, aa: AntennaArrayType):
@@ -185,8 +187,8 @@ class SceneCreateRequest(BaseModel):
     scene_origin: Optional[GeoPosition] = None
     temperature: Optional[float] = None
     bandwidth: Optional[float] = None
-    tx_array: Optional[float] = None
-    rx_array: Optional[float] = None
+    tx_array: Optional[AntennaArrayConfig] = None
+    rx_array: Optional[AntennaArrayConfig] = None
 
 
 class SceneCreateResponse(BaseModel):
@@ -200,4 +202,3 @@ class MessageResponse(BaseModel):
 
 class StatusResponse(BaseModel):
     status: str
-
