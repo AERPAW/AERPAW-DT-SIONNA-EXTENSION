@@ -6,7 +6,7 @@ services:
     container_name: aerpaw-sionna-api
     gpus: all
     ports:
-      - "127.0.0.1:8000:8000"
+      - "0.0.0.0:8000:8000"
     volumes:
       # Mount src directory
       - ./src:/app/src
