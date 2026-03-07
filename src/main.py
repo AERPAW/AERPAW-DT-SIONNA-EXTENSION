@@ -1,8 +1,6 @@
 import os
 from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
-import mitsuba as mi
-mi.set_variant("cuda_ad_rgb")
 
 from gpu_load_balancer import GpuLoadBalancerService
 from sionna_wrapper import Sionna
@@ -95,12 +93,9 @@ async def create_scene(scene_path: Optional[str] = None,
     scene_id = factory.create_scene()
     engine = factory.get_scene(scene_id)
     try:
-        env_factory = getattr(mi, "ThreadEnvironment", None)
-        env = env_factory() if env_factory else None
-        await _dispatch(scene_id, 
+        await _dispatch(scene_id,
                         engine.initialize,
-                        env, 
-                        scene_path, 
+                        scene_path,
                         scene_origin,
                         temperature,
                         bandwidth,

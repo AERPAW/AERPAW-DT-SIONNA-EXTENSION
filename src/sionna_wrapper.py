@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Tuple, Final, Any
+from typing import Dict, Optional, Tuple, Final
 from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType, CoordinateConverter
 import mitsuba as mi
 
@@ -42,6 +42,22 @@ RX_ARRAY: Final[AntennaArrayType] = AntennaArrayType(AntennaType.Receiver, 1, 1,
 METAL_SC: Final[float] = 0.1
 CONCRETE_SC: Final[float] = 0.3
 GROUND_SC: Final[float] = 0.5
+MITSUBA_VARIANTS: Final[Tuple[str, str]] = (
+    "cuda_ad_mono_polarized",
+    "llvm_ad_mono_polarized",
+)
+
+
+def _ensure_mitsuba_variant() -> None:
+    """Mitsuba variants are thread-local in 3.7+, so reapply before RT calls."""
+    current_variant = mi.variant()
+    if current_variant is not None and "mono_polarized" in current_variant:
+        return
+
+    try:
+        mi.set_variant(*MITSUBA_VARIANTS)
+    except ImportError:
+        mi.set_variant(MITSUBA_VARIANTS[-1])
 
 
 class Sionna:
@@ -55,7 +71,6 @@ class Sionna:
 
 
     def initialize(self, 
-                   env: Any,
                    scene_path: Optional[str] = None,
                    scene_origin: Optional[Dict[str, float]] = None,
                    temperature: Optional[float] = TEMPERATURE,
@@ -64,9 +79,8 @@ class Sionna:
                    rx_array: Optional[AntennaArrayType] = RX_ARRAY,
                    ) -> None:
         try:
-            # Brings mitsuba's plugins in scope to load the scene
-            with mi.ScopedSetThreadEnvironment(env):
-                self.scene = load_scene(scene_path or SCENE)
+            _ensure_mitsuba_variant()
+            self.scene = load_scene(scene_path or SCENE)
 
             # Setting scattering coefficients
             self.scene.objects.get("building-roofs").radio_material.scattering_coefficient = METAL_SC
@@ -263,10 +277,18 @@ class Sionna:
         if not self.transmitters or not self.receivers:
             raise RuntimeError("No transmitters or receivers in scene")
 
-        self._computed_paths = self._path_solver(scene=self.scene, max_depth=max_depth, 
-                                                 max_num_paths_per_src=num_samples, samples_per_src=num_samples,
-                                                 los=True, specular_reflection=True, diffuse_reflection=True,
-                                                 refraction=True)
+        try:
+            _ensure_mitsuba_variant()
+            self._computed_paths = self._path_solver(scene=self.scene, max_depth=max_depth, 
+                                                     max_num_paths_per_src=num_samples, samples_per_src=num_samples,
+                                                     los=True, specular_reflection=True, diffuse_reflection=True,
+                                                     refraction=True)
+        except Exception as e:
+            import traceback
+
+            raise RuntimeError(
+                f"Failed to compute paths: {e}\n{traceback.format_exc()}"
+            ) from e
 
         path_count = 0
         if (
@@ -285,8 +307,11 @@ class Sionna:
 
     def get_channel_impulse_response(self) -> Dict:
         """Return Channel Impulse Response (CIR) from computed paths."""
+        if self._computed_paths is None:
+            raise RuntimeError("Paths not computed")
 
         try:
+            _ensure_mitsuba_variant()
             # Use the Paths.cir() method to get channel impulse response
             # Returns (a, tau) where:
             # a: complex path coefficients [num_rx, num_rx_ant, num_tx, num_tx_ant, num_paths, num_time_steps]
