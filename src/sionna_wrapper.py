@@ -42,6 +42,7 @@ RX_ARRAY: Final[AntennaArrayType] = AntennaArrayType(AntennaType.Receiver, 1, 1,
 METAL_SC: Final[float] = 0.1
 CONCRETE_SC: Final[float] = 0.3
 GROUND_SC: Final[float] = 0.5
+
 MITSUBA_VARIANTS: Final[Tuple[str, str]] = (
     "cuda_ad_mono_polarized",
     "llvm_ad_mono_polarized",
