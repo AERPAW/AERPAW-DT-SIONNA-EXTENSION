@@ -137,6 +137,7 @@ class PathComputationResponse(BaseModel):
     path_count: int
     max_depth: int
     num_samples: int
+    computation_time: int = Field(description="Computation time in milliseconds")
     message: str = "Paths computed successfully"
 
 
@@ -167,6 +168,7 @@ class CirResponse(BaseModel):
     )
     gains: CirGains = Field(description="Complex path gains")
     shape: CirShape = Field(description="Dimensions of the CIR arrays")
+    computation_time: int = Field(description="Computation time in milliseconds")
     message: str = "CIR retrieved successfully"
 
 

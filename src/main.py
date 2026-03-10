@@ -1,4 +1,5 @@
 import os
+import time
 from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
 
@@ -277,10 +278,18 @@ async def set_array(
 async def compute_paths(scene_id: str, max_depth: int = 3, num_samples: int = 1e5) -> Dict:
     """Compute propagation paths between transmitters and receivers in a scene."""
     engine = factory.get_scene(scene_id)
-    return await _dispatch(scene_id, engine.compute_paths, max_depth, num_samples)
+    start = time.time()
+    result = await _dispatch(scene_id, engine.compute_paths, max_depth, num_samples)
+    end = time.time()
+    result["computation_time"] = int((end - start) * 1000)
+    return result
 
 
 async def get_cir(scene_id: str) -> Dict:
     """Get the Channel Impulse Response for a scene."""
     engine = factory.get_scene(scene_id)
-    return await _dispatch(scene_id, engine.get_channel_impulse_response)
+    start = time.time()
+    result = await _dispatch(scene_id, engine.get_channel_impulse_response)
+    end = time.time()
+    result["computation_time"] = int((end - start) * 1000)
+    return result

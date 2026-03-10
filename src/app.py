@@ -312,6 +312,7 @@ async def compute_paths(scene_id: str, params: PathComputationRequest):
             path_count=result["path_count"], 
             max_depth=result["max_depth"],
             num_samples=result["num_samples"],
+            computation_time=result["computation_time"],
         )
     except main.SceneNotFoundError:
         _raise_scene_not_found(scene_id)
@@ -336,6 +337,7 @@ async def get_cir(scene_id: str):
             delays=result["delays"],
             gains=CirGains(**result["gains"]),
             shape=CirShape(**result["shape"]),
+            computation_time=result["computation_time"],
         )
     except main.SceneNotFoundError:
         _raise_scene_not_found(scene_id)
