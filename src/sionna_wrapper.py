@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from typing import Dict, Optional, Tuple, Final
 from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType, CoordinateConverter
 import mitsuba as mi
@@ -45,7 +46,14 @@ GROUND_SC: Final[float] = 0.5
 
 # Setting variant and thread environment
 mi.set_variant("cuda_ad_rgb")
-main_thread_env = mi.ThreadEnvironment()
+main_thread_env = mi.ThreadEnvironment() if hasattr(mi, "ThreadEnvironment") else None
+
+
+def _main_thread_context():
+    scoped_env_cls = getattr(mi, "ScopedSetThreadEnvironment", None)
+    if scoped_env_cls is None or main_thread_env is None:
+        return nullcontext()
+    return scoped_env_cls(main_thread_env)
 
 
 class Sionna:
@@ -67,7 +75,7 @@ class Sionna:
                    rx_array: Optional[AntennaArrayType] = RX_ARRAY,
                    ) -> None:
         try:
-            with mi.ScopedSetThreadEnvironment(main_thread_env):
+            with _main_thread_context():
                 self.scene = load_scene(scene_path or SCENE)
 
             # Setting scattering coefficients
@@ -266,7 +274,7 @@ class Sionna:
             raise RuntimeError("No transmitters or receivers in scene")
 
         try:
-            with mi.ScopedSetThreadEnvironment(main_thread_env):
+            with _main_thread_context():
                 self._computed_paths = self._path_solver(scene=self.scene, max_depth=max_depth, 
                                                      max_num_paths_per_src=num_samples, samples_per_src=num_samples,
                                                      los=True, specular_reflection=True, diffuse_reflection=True,
@@ -303,7 +311,7 @@ class Sionna:
             # Returns (a, tau) where:
             # a: complex path coefficients [num_rx, num_rx_ant, num_tx, num_tx_ant, num_paths, num_time_steps]
             # tau: path delays [num_rx, num_rx_ant, num_tx, num_tx_ant, num_paths]
-            with mi.ScopedSetThreadEnvironment(main_thread_env):
+            with _main_thread_context():
                 a, tau = self._computed_paths.cir(
                     normalize_delays=True,  # Normalize first path to zero delay
                     out_type="numpy",  # Get numpy arrays

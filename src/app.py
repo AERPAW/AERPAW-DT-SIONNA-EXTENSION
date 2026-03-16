@@ -142,7 +142,7 @@ async def add_tx(scene_id: str, device: TransmitterCreate):
             name=result["name"],
             type="tx",
             position=GeoPosition.from_tuple(result["position"]),
-            velocity=Vector3D.from_tuple(pos=result["velocity"]),
+            velocity=Vector3D.from_tuple(result["velocity"]),
             signal_power=result["signal_power"],
             orientation=Vector3D.from_tuple(result["orientation"]),
         )
