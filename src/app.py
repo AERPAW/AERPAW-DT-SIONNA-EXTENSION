@@ -64,11 +64,14 @@ def root():
 )
 async def create_scene(payload: Optional[SceneCreateRequest] = None):
     try:
-        scene_id = await main.create_scene(payload.scene_path if payload else None,
-                                           payload.temperature if payload else None,
-                                           payload.bandwidth if payload else None,
-                                           payload.tx_array.to_type() if payload else None,
-                                           payload.rx_array.to_type() if payload else None)
+        scene_id = await main.create_scene(
+            scene_path=payload.scene_path if payload else None,
+            scene_origin=payload.scene_origin.model_dump() if payload and payload.scene_origin else None,
+            temperature=payload.temperature if payload else None,
+            bandwidth=payload.bandwidth if payload else None,
+            tx_array=payload.tx_array.to_class() if payload and payload.tx_array else None,
+            rx_array=payload.rx_array.to_class() if payload and payload.rx_array else None,
+        )
         return SceneCreateResponse(scene_id=scene_id)
     except RuntimeError as e:
         raise HTTPException(
@@ -139,7 +142,7 @@ async def add_tx(scene_id: str, device: TransmitterCreate):
             name=result["name"],
             type="tx",
             position=GeoPosition.from_tuple(result["position"]),
-            velocity=Vector3D.from_tuple(pos=result["velocity"]),
+            velocity=Vector3D.from_tuple(result["velocity"]),
             signal_power=result["signal_power"],
             orientation=Vector3D.from_tuple(result["orientation"]),
         )
@@ -309,6 +312,7 @@ async def compute_paths(scene_id: str, params: PathComputationRequest):
             path_count=result["path_count"], 
             max_depth=result["max_depth"],
             num_samples=result["num_samples"],
+            computation_time=result["computation_time"],
         )
     except main.SceneNotFoundError:
         _raise_scene_not_found(scene_id)
@@ -333,6 +337,7 @@ async def get_cir(scene_id: str):
             delays=result["delays"],
             gains=CirGains(**result["gains"]),
             shape=CirShape(**result["shape"]),
+            computation_time=result["computation_time"],
         )
     except main.SceneNotFoundError:
         _raise_scene_not_found(scene_id)

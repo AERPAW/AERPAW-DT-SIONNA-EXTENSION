@@ -1,4 +1,5 @@
 import os
+import time
 from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
 
@@ -6,7 +7,7 @@ from gpu_load_balancer import GpuLoadBalancerService
 from sionna_wrapper import Sionna
 from utils import (
     AntennaType,
-    CoordinateConverter,
+    AntennaArrayType,
     PolarizationType,
     RadiationPattern,
 )
@@ -44,7 +45,6 @@ class SionnaFactory:
 
 factory = SionnaFactory()
 gpu_dispatcher: Optional[GpuLoadBalancerService] = None
-coordinate_converter = CoordinateConverter.from_env()
 
 
 def _configured_gpu_ids() -> List[str]:
@@ -61,14 +61,6 @@ def _require_dispatcher() -> GpuLoadBalancerService:
 
 async def _dispatch(scene_id: str, fn, *args, **kwargs):
     return await _require_dispatcher().dispatch(scene_id, fn, *args, **kwargs)
-
-
-def _geo_to_local(position: Tuple[float, float, float]) -> Tuple[float, float, float]:
-    return coordinate_converter.lat_lon_alt_to_local(*position)
-
-
-def _local_to_geo(position: Tuple[float, float, float]) -> Tuple[float, float, float]:
-    return coordinate_converter.local_to_lat_lon_alt(*position)
 
 
 async def initialize() -> None:
@@ -92,12 +84,24 @@ async def shutdown() -> None:
     factory.shutdown()
 
 
-async def create_scene(scene_path: Optional[str] = None) -> str:
+async def create_scene(scene_path: Optional[str] = None,
+                       scene_origin: Optional[Dict[str, float]] = None,
+                       temperature: Optional[float] = None,
+                       bandwidth: Optional[float] = None,
+                       tx_array: Optional[AntennaArrayType] = None,
+                       rx_array: Optional[AntennaArrayType] = None) -> str:
     """Create, load, and register a new scene instance."""
     scene_id = factory.create_scene()
     engine = factory.get_scene(scene_id)
     try:
-        await _dispatch(scene_id, engine.load_simulation_scene, scene_path)
+        await _dispatch(scene_id,
+                        engine.initialize,
+                        scene_path,
+                        scene_origin,
+                        temperature,
+                        bandwidth,
+                        tx_array,
+                        rx_array)
     except Exception:
         factory.delete_scene(scene_id)
         raise
@@ -107,13 +111,7 @@ async def create_scene(scene_path: Optional[str] = None) -> str:
 async def get_scene_info(scene_id: str) -> Dict:
     """Get information about a specific scene."""
     engine = factory.get_scene(scene_id)
-    scene_info = await _dispatch(scene_id, engine.get_scene_info)
-    scene_info["coordinate_reference"] = {
-        "lat": coordinate_converter.reference.lat,
-        "lon": coordinate_converter.reference.lon,
-        "alt": coordinate_converter.reference.alt,
-    }
-    return scene_info
+    return await _dispatch(scene_id, engine.get_scene_info)
 
 
 async def reset_scene(scene_id: str) -> None:
@@ -132,28 +130,32 @@ async def add_transmitter(
 ) -> Dict:
     """Add a transmitter to a specific scene."""
     engine = factory.get_scene(scene_id)
-    local_position = _geo_to_local(position)
 
     def _add() -> Dict:
-        engine.add_transmitter(name, local_position, orientation)
-        result = {"name": name, "position": _local_to_geo(local_position)}
-        if orientation:
-            result["orientation"] = orientation
-        return result
+        orientation_result = engine.add_transmitter(name, position, signal_power,
+                                                    velocity, orientation)
+        return {"name": name, "position": position,
+                "signal_power": signal_power, 
+                "velocity": velocity, "orientation": orientation_result}
 
     return await _dispatch(scene_id, _add)
 
 
-async def update_transmitter_position(
-    scene_id: str, name: str, position: Tuple[float, float, float]
+async def update_transmitter(
+    scene_id: str, name: str, 
+    position: Optional[Tuple[float, float, float]] = None,
+    signal_power: Optional[float] = None,
+    velocity: Optional[Tuple[float, float, float]] = None,
+    orientation: Optional[Tuple[float, float, float]] = None,
 ) -> Dict:
     """Update the position of an existing transmitter in a scene."""
     engine = factory.get_scene(scene_id)
-    local_position = _geo_to_local(position)
 
     def _update() -> Dict:
-        engine.update_ant_position(AntennaType.Transmitter, name, local_position)
-        return {"name": name, "position": _local_to_geo(local_position)}
+        engine.update_transmitter(name, position, signal_power, velocity, orientation)
+        return {"name": name, "position": position,
+                "signal_power": signal_power, 
+                "velocity": velocity, "orientation": orientation}
 
     return await _dispatch(scene_id, _update)
 
@@ -173,28 +175,28 @@ async def add_receiver(
 ) -> Dict:
     """Add a receiver to a specific scene."""
     engine = factory.get_scene(scene_id)
-    local_position = _geo_to_local(position)
 
     def _add() -> Dict:
-        engine.add_receiver(name, local_position, orientation)
-        result = {"name": name, "position": _local_to_geo(local_position)}
-        if orientation:
-            result["orientation"] = orientation
-        return result
+        orientation_result = engine.add_receiver(name, position, velocity, orientation)
+        return {"name": name, "position": position,
+                "velocity": velocity, "orientation": orientation_result}
 
     return await _dispatch(scene_id, _add)
 
 
-async def update_receiver_position(
-    scene_id: str, name: str, position: Tuple[float, float, float]
+async def update_receiver(
+    scene_id: str, name: str, 
+    position: Optional[Tuple[float, float, float]] = None,
+    velocity: Optional[Tuple[float, float, float]] = None,
+    orientation: Optional[Tuple[float, float, float]] = None,
 ) -> Dict:
     """Update the position of an existing receiver in a scene."""
     engine = factory.get_scene(scene_id)
-    local_position = _geo_to_local(position)
 
     def _update() -> Dict:
-        engine.update_ant_position(AntennaType.Receiver, name, local_position)
-        return {"name": name, "position": _local_to_geo(local_position)}
+        engine.update_receiver(name, position, velocity, orientation)
+        return {"name": name, "position": position,
+                "velocity": velocity, "orientation": orientation}
 
     return await _dispatch(scene_id, _update)
 
@@ -273,13 +275,21 @@ async def set_array(
     }
 
 
-async def compute_paths(scene_id: str, max_depth: int = 3) -> Dict:
+async def compute_paths(scene_id: str, max_depth: int = 3, num_samples: int = 1e5) -> Dict:
     """Compute propagation paths between transmitters and receivers in a scene."""
     engine = factory.get_scene(scene_id)
-    return await _dispatch(scene_id, engine.compute_paths, max_depth)
+    start = time.time()
+    result = await _dispatch(scene_id, engine.compute_paths, max_depth, num_samples)
+    end = time.time()
+    result["computation_time"] = int((end - start) * 1000)
+    return result
 
 
 async def get_cir(scene_id: str) -> Dict:
     """Get the Channel Impulse Response for a scene."""
     engine = factory.get_scene(scene_id)
-    return await _dispatch(scene_id, engine.get_channel_impulse_response)
+    start = time.time()
+    result = await _dispatch(scene_id, engine.get_channel_impulse_response)
+    end = time.time()
+    result["computation_time"] = int((end - start) * 1000)
+    return result

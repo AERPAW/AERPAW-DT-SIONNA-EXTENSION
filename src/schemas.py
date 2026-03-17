@@ -1,7 +1,5 @@
 from typing import Any, Dict, List, Optional
-
 from pydantic import BaseModel, Field
-
 from utils import AntennaArrayType, AntennaType, RadiationPattern, PolarizationType
 
 
@@ -18,7 +16,7 @@ class GeoPosition(BaseModel):
         return cls(lat=pos[0], lon=pos[1], alt=pos[2])
 
 
-class Orientation(BaseModel):
+class Vector3D(BaseModel):
     x: float
     y: float
     z: float
@@ -49,13 +47,15 @@ class AntennaArrayConfig(BaseModel):
     )
 
     def to_class(self):
-        return AntennaArrayType(self.antenna_type, 
-                                self.num_rows, 
-                                self.num_cols, 
-                                self.vertical_spacing, 
-                                self.horizontal_spacing, 
-                                self.pattern, 
-                                self.polarization)
+        return AntennaArrayType(
+            AntennaType.to_enum(self.antenna_type),
+            self.num_rows,
+            self.num_cols,
+            self.horizontal_spacing,
+            self.vertical_spacing,
+            RadiationPattern(self.pattern),
+            PolarizationType(self.polarization),
+        )
 
     @classmethod
     def from_class(self, aa: AntennaArrayType):
@@ -79,18 +79,47 @@ class TransmitterCreate(BaseModel):
     """
     name: str = Field(..., description="Unique identifier for the device")
     position: GeoPosition
-    orientation: Optional[Orientation] = None
+    signal_power: float
+    velocity: Optional[Vector3D] = Vector3D(x=0, y=0, z=0)  # Used for doppler effects
+    orientation: Optional[Vector3D] = None
 
 
-class DeviceUpdate(BaseModel):
+class TransmitterUpdate(BaseModel):
+    """
+    Updates all the parameters of a transmitter object by name
+    """
+    position: Optional[GeoPosition] = None
+    signal_power: Optional[float] = None
+    velocity: Optional[Vector3D] = None
+    orientation: Optional[Vector3D] = None
+
+
+class ReceiverCreate(BaseModel):
+    """
+    Creates a new receiver in the scene
+    """
+    name: str = Field(..., description="Unique identifier for the device")
     position: GeoPosition
-    orientation: Optional[Orientation] = None
+    velocity: Optional[Vector3D] = Vector3D(x=0, y=0, z=0)  # Used for doppler effects
+    orientation: Optional[Vector3D] = None
+
+
+class ReceiverUpdate(BaseModel):
+    """
+    Update all the parameters of a receiver in the scene
+    """
+    position: Optional[GeoPosition] = None
+    velocity: Optional[Vector3D] = None
+    orientation: Optional[Vector3D] = None
 
 
 class DeviceResponse(BaseModel):
     name: str
+    type: str
     position: GeoPosition
-    orientation: Optional[Orientation] = None
+    velocity: Optional[Vector3D] = Vector3D(x=0, y=0, z=0)  # Used for doppler effects
+    signal_power: Optional[float] = None
+    orientation: Optional[Vector3D] = None
 
 
 class PathComputationRequest(BaseModel):
@@ -107,6 +136,8 @@ class PathComputationResponse(BaseModel):
     
     path_count: int
     max_depth: int
+    num_samples: int
+    computation_time: int = Field(description="Computation time in milliseconds")
     message: str = "Paths computed successfully"
 
 
@@ -137,6 +168,7 @@ class CirResponse(BaseModel):
     )
     gains: CirGains = Field(description="Complex path gains")
     shape: CirShape = Field(description="Dimensions of the CIR arrays")
+    computation_time: int = Field(description="Computation time in milliseconds")
     message: str = "CIR retrieved successfully"
 
 
@@ -154,6 +186,11 @@ class SceneCreateRequest(BaseModel):
     scene_path: Optional[str] = Field(
         None, description="Optional custom scene path. Defaults to bundled Sionna scene."
     )
+    scene_origin: Optional[GeoPosition] = None
+    temperature: Optional[float] = None
+    bandwidth: Optional[float] = None
+    tx_array: Optional[AntennaArrayConfig] = None
+    rx_array: Optional[AntennaArrayConfig] = None
 
 
 class SceneCreateResponse(BaseModel):
@@ -167,4 +204,3 @@ class MessageResponse(BaseModel):
 
 class StatusResponse(BaseModel):
     status: str
-

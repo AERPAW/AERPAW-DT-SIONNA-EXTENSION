@@ -1,8 +1,11 @@
 # Use Python 3.12 as base image
-FROM python:3.12-slim
+FROM tensorflow/tensorflow:2.16.1-gpu
 
 # Set working directory
 WORKDIR /app
+
+# Ensuring Mitsuba/Optix environment
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
 
 # Install system dependencies required for Sionna RT and other packages
 RUN apt-get update && apt-get install -y \
@@ -31,8 +34,9 @@ COPY data/scenes/meshes/lake-wheeler-building-roofs-shaped-output.ply /app/scene
 COPY data/scenes/meshes/lake-wheeler-building-walls-output.ply /app/scenes/meshes/
 COPY data/scenes/meshes/terrain-mesh-small-output.ply /app/scenes/meshes/
 
-# Set Python path to include src directory
+# Setting environment variables for the containerized version
 ENV PYTHONPATH=/app/src:$PYTHONPATH
+ENV SCENE_PATH=/app/scenes/lake-wheeler-scene.xml
 
 # Expose the fastAPI port for running it
 EXPOSE 8000

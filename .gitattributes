@@ -1,0 +1,16 @@
+data filter=lfs diff=lfs merge=lfs -text
+data/scenes filter=lfs diff=lfs merge=lfs -text
+data/scenes/lake-wheeler-scene.xml filter=lfs diff=lfs merge=lfs -text
+data/scenes/lake-wheeler-trees-segmented.xml filter=lfs diff=lfs merge=lfs -text
+data/scenes/meshes filter=lfs diff=lfs merge=lfs -text
+data/scenes/scene.xml filter=lfs diff=lfs merge=lfs -text
+data/scenes/meshes/terrain-mesh-small-output.ply filter=lfs diff=lfs merge=lfs -text
+data/scenes/meshes/animal-health-mesh.ply filter=lfs diff=lfs merge=lfs -text
+data/scenes/meshes/external-mesh-output.ply filter=lfs diff=lfs merge=lfs -text
+data/scenes/meshes/external-mesh.ply filter=lfs diff=lfs merge=lfs -text
+data/scenes/meshes/lake-wheeler-building-roofs-output.ply filter=lfs diff=lfs merge=lfs -text
+data/scenes/meshes/lake-wheeler-building-roofs-shaped-output.ply filter=lfs diff=lfs merge=lfs -text
+data/scenes/meshes/lake-wheeler-building-walls-output.ply filter=lfs diff=lfs merge=lfs -text
+data/scenes/meshes/animal-health-2-mesh-output.ply filter=lfs diff=lfs merge=lfs -text
+data/scenes/meshes/animal-health-2-mesh.ply filter=lfs diff=lfs merge=lfs -text
+data/scenes/meshes/animal-health-mesh-output.ply filter=lfs diff=lfs merge=lfs -text

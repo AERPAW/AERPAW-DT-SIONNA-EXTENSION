@@ -1,3 +1,5 @@
+import os
+from contextlib import nullcontext
 from typing import Dict, Optional, Tuple, Final
 from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType, CoordinateConverter
 import mitsuba as mi
@@ -28,9 +30,8 @@ from sionna.rt import (
     subcarrier_frequencies,
 )
 
-# Default values for scene paths
-SCENE: Final[str] = "../data/scenes/lake-wheeler-scene.xml"
-# SCENE: Final[str] = "/app/scenes/lake-wheeler-scene.xml"
+# Default values for scene paths - set in Dockerfile
+SCENE: Final[str] = os.getenv("SCENE_PATH", "../data/scenes/lake-wheeler-scene.xml")
 
 # Default values for scene parameters
 TEMPERATURE: Final[float] = 300.0  # Temperaure in Kelvin
@@ -42,6 +43,17 @@ RX_ARRAY: Final[AntennaArrayType] = AntennaArrayType(AntennaType.Receiver, 1, 1,
 METAL_SC: Final[float] = 0.1
 CONCRETE_SC: Final[float] = 0.3
 GROUND_SC: Final[float] = 0.5
+
+# Setting variant and thread environment
+mi.set_variant("cuda_ad_rgb")
+main_thread_env = mi.ThreadEnvironment() if hasattr(mi, "ThreadEnvironment") else None
+
+
+def _main_thread_context():
+    scoped_env_cls = getattr(mi, "ScopedSetThreadEnvironment", None)
+    if scoped_env_cls is None or main_thread_env is None:
+        return nullcontext()
+    return scoped_env_cls(main_thread_env)
 
 
 class Sionna:
@@ -55,7 +67,6 @@ class Sionna:
 
 
     def initialize(self, 
-                   env: mi.ThreadEnvironment,
                    scene_path: Optional[str] = None,
                    scene_origin: Optional[Dict[str, float]] = None,
                    temperature: Optional[float] = TEMPERATURE,
@@ -64,8 +75,7 @@ class Sionna:
                    rx_array: Optional[AntennaArrayType] = RX_ARRAY,
                    ) -> None:
         try:
-            # Brings mitsuba's plugins in scope to load the scene
-            with mi.ScopedSetThreadEnvironment(env):
+            with _main_thread_context():
                 self.scene = load_scene(scene_path or SCENE)
 
             # Setting scattering coefficients
@@ -108,6 +118,7 @@ class Sionna:
             "tx_array": tx_array,
             "rx_array": rx_array,
             "temperature": self.scene.temperature[0],
+            "coordinate_reference": self._coordinate_converter.get_origin(),
         }
     
 
@@ -262,10 +273,18 @@ class Sionna:
         if not self.transmitters or not self.receivers:
             raise RuntimeError("No transmitters or receivers in scene")
 
-        self._computed_paths = self._path_solver(scene=self.scene, max_depth=max_depth, 
-                                                 max_num_paths_per_src=num_samples, samples_per_src=num_samples,
-                                                 los=True, specular_reflection=True, diffuse_reflection=True,
-                                                 refraction=True)
+        try:
+            with _main_thread_context():
+                self._computed_paths = self._path_solver(scene=self.scene, max_depth=max_depth, 
+                                                     max_num_paths_per_src=num_samples, samples_per_src=num_samples,
+                                                     los=True, specular_reflection=True, diffuse_reflection=True,
+                                                     refraction=True)
+        except Exception as e:
+            import traceback
+
+            raise RuntimeError(
+                f"Failed to compute paths: {e}\n{traceback.format_exc()}"
+            ) from e
 
         path_count = 0
         if (
@@ -284,17 +303,19 @@ class Sionna:
 
     def get_channel_impulse_response(self) -> Dict:
         """Return Channel Impulse Response (CIR) from computed paths."""
+        if self._computed_paths is None:
+            raise RuntimeError("Paths not computed")
 
         try:
             # Use the Paths.cir() method to get channel impulse response
             # Returns (a, tau) where:
             # a: complex path coefficients [num_rx, num_rx_ant, num_tx, num_tx_ant, num_paths, num_time_steps]
             # tau: path delays [num_rx, num_rx_ant, num_tx, num_tx_ant, num_paths]
-
-            a, tau = self._computed_paths.cir(
-                normalize_delays=True,  # Normalize first path to zero delay
-                out_type="numpy",  # Get numpy arrays
-            )
+            with _main_thread_context():
+                a, tau = self._computed_paths.cir(
+                    normalize_delays=True,  # Normalize first path to zero delay
+                    out_type="numpy",  # Get numpy arrays
+                )
 
             # Convert to nested lists for JSON serialization
             delays = tau.tolist()
@@ -332,4 +353,3 @@ class Sionna:
         self.receivers.clear()
         self._path_solver = sionna.rt.PathSolver()
         self._computed_paths = None
-        self._coordinate_converter = None

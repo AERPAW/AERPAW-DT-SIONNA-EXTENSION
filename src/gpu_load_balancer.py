@@ -4,6 +4,22 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Any, Callable, List, Optional
 
+import mitsuba as mi
+
+
+MITSUBA_VARIANTS = ("cuda_ad_mono_polarized", "llvm_ad_mono_polarized")
+
+
+def _ensure_mitsuba_variant() -> None:
+    current_variant = mi.variant()
+    if current_variant is not None and "mono_polarized" in current_variant:
+        return
+
+    try:
+        mi.set_variant(*MITSUBA_VARIANTS)
+    except ImportError:
+        mi.set_variant(MITSUBA_VARIANTS[-1])
+
 
 @dataclass
 class _QueuedJob:
@@ -89,7 +105,7 @@ class GpuLoadBalancerService:
 
             job: _QueuedJob = item
             try:
-                result = await asyncio.to_thread(job.call)
+                result = await asyncio.to_thread(self._run_job, job.call)
             except Exception as exc:
                 if not job.future.cancelled():
                     job.future.set_exception(exc)
@@ -98,3 +114,10 @@ class GpuLoadBalancerService:
                     job.future.set_result(result)
             finally:
                 queue.task_done()
+
+    @staticmethod
+    def _run_job(call: Callable[[], Any]) -> Any:
+        # Mitsuba variants are thread-local in 3.7+, so every executor thread
+        # that touches Sionna/Mitsuba must initialize the polarized variant.
+        _ensure_mitsuba_variant()
+        return call()

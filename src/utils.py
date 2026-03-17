@@ -1,12 +1,13 @@
 from enum import Enum
-from typing import Optional, Final, Tuple, Dict
+from typing import Optional, Final, Tuple, Dict, List
 from sionna.rt import PlanarArray
 from pyproj import Transformer
 from pyproj.enums import TransformDirection
 
-# Position of LW1 in lat/lon/alt
-# TODO: This should be different, based on the lake wheeler scene
+# Position of LW1 in lat/lon/alt - (deg/deg/m)
 ORIGIN_LAT_LON: Final[Dict[str, float]] = {"lat": 35.72750947, "lon": -78.69595819, "alt": 82.973}
+# XYZ Offset Based on Lake Wheeler Scene - (ft/ft/ft)
+SIONNA_OFFSET: Final[List[float]] = [2020.5, 1971.5, 43]
 
 
 class AntennaType(Enum):
@@ -86,10 +87,11 @@ class CoordinateConverter:
 
         pipeline = (
             f"+proj=pipeline "
-            f"+step +proj=unitconvert +xy_in=deg +z_in=m +xy_out=rad +z_out=m " # Step 1: Degrees to Radians
-            f"+step +proj=cart +ellps=WGS84 "                                   # Step 2: Geographic to Geocentric
-            f"+step +proj=topocentric +ellps=WGS84 "                            # Step 3: Geocentric to Topocentric ENU
-            f"+lon_0={self.origin['lon']} +lat_0={self.origin['lat']} +h_0={self.origin['alt']}"
+            f"+step +proj=unitconvert +xy_in=deg +z_in=m +xy_out=rad +z_out=m "
+            f"+step +proj=cart +ellps=WGS84 "
+            f"+step +proj=topocentric +ellps=WGS84 "                            
+            f"+lon_0={self.origin['lon']} +lat_0={self.origin['lat']} +h_0={self.origin['alt']} "
+            f"+step +proj=unitconvert +xy_in=m +z_in=m +xy_out=ft +z_out=ft"    
         )
 
         self.transformer = Transformer.from_pipeline(pipeline)
@@ -99,10 +101,11 @@ class CoordinateConverter:
         self.origin = origin
         pipeline = (
             f"+proj=pipeline "
-            f"+step +proj=unitconvert +xy_in=deg +z_in=m +xy_out=rad +z_out=m " # Step 1: Degrees to Radians
-            f"+step +proj=cart +ellps=WGS84 "                                   # Step 2: Geographic to Geocentric
-            f"+step +proj=topocentric +ellps=WGS84 "                            # Step 3: Geocentric to Topocentric ENU
-            f"+lon_0={self.origin['lon']} +lat_0={self.origin['lat']} +h_0={self.origin['alt']}"
+            f"+step +proj=unitconvert +xy_in=deg +z_in=m +xy_out=rad +z_out=m "
+            f"+step +proj=cart +ellps=WGS84 "
+            f"+step +proj=topocentric +ellps=WGS84 "                            
+            f"+lon_0={self.origin['lon']} +lat_0={self.origin['lat']} +h_0={self.origin['alt']} "
+            f"+step +proj=unitconvert +xy_in=m +z_in=m +xy_out=ft +z_out=ft"    
         )
 
         self.transformer = Transformer.from_pipeline(pipeline)
@@ -118,20 +121,15 @@ class CoordinateConverter:
     ) -> Tuple[float, float, float]:
         """Convert geodetic coordinate to local ENU tuple (x=east, y=north, z=up)."""
         east, north, up = self.transformer.transform(lon, lat, alt, direction=TransformDirection.FORWARD)
-        return (east, north, up)
+        return (east + SIONNA_OFFSET[0], north + SIONNA_OFFSET[1], up + SIONNA_OFFSET[2])
 
 
     def local_to_lat_lon_alt(
         self, x: float, y: float, z: float
     ) -> Tuple[float, float, float]:
-        lon, lat, alt = self.transformer.transform(x, y, z, direction=TransformDirection.INVERSE)
+        lon, lat, alt = self.transformer.transform(x - SIONNA_OFFSET[0],
+                                                   y - SIONNA_OFFSET[1],
+                                                   z - SIONNA_OFFSET[2], 
+                                                   direction=TransformDirection.INVERSE)
         return (lat, lon, alt)
-    
 
-if __name__ == '__main__':
-    cc = CoordinateConverter()
-    ref = (35.6, -78, 100)
-    local_coord = cc.lat_lon_alt_to_local(ref[0], ref[1], ref[2])
-    output = cc.local_to_lat_lon_alt(local_coord[0], local_coord[1], local_coord[2])
-    print(local_coord)
-    print(output)
