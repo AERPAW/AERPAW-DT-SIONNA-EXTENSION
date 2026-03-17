@@ -2,6 +2,7 @@ services:
   sionna-api:
     build:
       context: .
+      network: host
       dockerfile: Dockerfile
     container_name: aerpaw-sionna-api
     gpus: all
@@ -11,4 +12,5 @@ services:
       - ./src:/app/src
     environment:
       - PYTHONPATH=/app/src
+      - SCENE_PATH=/app/scenes/lake-wheeler-scene.xml
     restart: unless-stopped

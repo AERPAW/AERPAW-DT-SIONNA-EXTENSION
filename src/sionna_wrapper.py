@@ -1,3 +1,4 @@
+import os
 from contextlib import nullcontext
 from typing import Dict, Optional, Tuple, Final
 from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType, CoordinateConverter
@@ -29,9 +30,8 @@ from sionna.rt import (
     subcarrier_frequencies,
 )
 
-# Default values for scene paths
-# SCENE: Final[str] = "../data/scenes/lake-wheeler-scene.xml"
-SCENE: Final[str] = "/app/scenes/lake-wheeler-scene.xml"
+# Default values for scene paths - set in Dockerfile
+SCENE: Final[str] = os.getenv("SCENE_PATH", "../data/scenes/lake-wheeler-scene.xml")
 
 # Default values for scene parameters
 TEMPERATURE: Final[float] = 300.0  # Temperaure in Kelvin
