@@ -116,7 +116,7 @@ class ReceiverUpdate(BaseModel):
 class DeviceResponse(BaseModel):
     name: str
     type: str
-    position: GeoPosition
+    position: Optional[GeoPosition] = None
     velocity: Optional[Vector3D] = Vector3D(x=0, y=0, z=0)  # Used for doppler effects
     signal_power: Optional[float] = None
     orientation: Optional[Vector3D] = None

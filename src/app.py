@@ -23,6 +23,11 @@ from schemas import (
     StatusResponse,
 )
 
+try:
+    from fastapi.responses import ORJSONResponse
+except ImportError:
+    ORJSONResponse = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,12 +42,16 @@ async def lifespan(app: FastAPI):
     await main.shutdown()
 
 
-app = FastAPI(
-    title="Sionna RT API",
-    description="API for ray tracing simulation using Sionna",
-    version="1.0.0",
-    lifespan=lifespan,
-)
+_app_kwargs = {
+    "title": "Sionna RT API",
+    "description": "API for ray tracing simulation using Sionna",
+    "version": "1.0.0",
+    "lifespan": lifespan,
+}
+if ORJSONResponse is not None:
+    _app_kwargs["default_response_class"] = ORJSONResponse
+
+app = FastAPI(**_app_kwargs)
 
 
 def _raise_scene_not_found(scene_id: str):
@@ -144,7 +153,7 @@ async def add_tx(scene_id: str, device: TransmitterCreate):
             position=GeoPosition.from_tuple(result["position"]),
             velocity=Vector3D.from_tuple(result["velocity"]),
             signal_power=result["signal_power"],
-            orientation=Vector3D.from_tuple(result["orientation"]),
+            orientation=Vector3D.from_tuple(result["orientation"]) if result["orientation"] else None,
         )
     except main.SceneNotFoundError:
         _raise_scene_not_found(scene_id)
@@ -234,7 +243,7 @@ async def add_rx(scene_id: str, device: ReceiverCreate):
             position=GeoPosition.from_tuple(result["position"]),
             signal_power=None,
             velocity=Vector3D.from_tuple(result["velocity"]),
-            orientation=Vector3D.from_tuple(result["orientation"]),
+            orientation=Vector3D.from_tuple(result["orientation"]) if result["orientation"] else None,
         )
     except main.SceneNotFoundError:
         _raise_scene_not_found(scene_id)
@@ -282,10 +291,10 @@ async def update_rx(scene_id: str, name: str, data: ReceiverUpdate):
         return DeviceResponse(
             name=result["name"], 
             type="rx",
-            position=GeoPosition.from_tuple(result["position"]),
+            position=GeoPosition.from_tuple(result["position"]) if result["position"] else None,
             signal_power=None,
-            velocity=Vector3D.from_tuple(result["velocity"]),
-            orientation=Vector3D.from_tuple(result["orientation"]),
+            velocity=Vector3D.from_tuple(result["velocity"]) if result["velocity"] else None,
+            orientation=Vector3D.from_tuple(result["orientation"]) if result["orientation"] else None,
         )
     except main.SceneNotFoundError:
         _raise_scene_not_found(scene_id)

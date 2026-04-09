@@ -1,0 +1,7 @@
+services:
+  sionna-api:
+    gpus: all
+    environment:
+      - MI_VARIANT=cuda_ad_mono_polarized
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics

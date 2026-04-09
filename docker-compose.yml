@@ -5,12 +5,14 @@ services:
       network: host
       dockerfile: Dockerfile
     container_name: aerpaw-sionna-api
-    gpus: all
     ports:
       - "0.0.0.0:8000:8000"
     volumes:
       - ./src:/app/src
+      - ./test:/app/test
     environment:
       - PYTHONPATH=/app/src
-      - SCENE_PATH=/app/scenes/lake-wheeler-scene.xml
+      - SCENE_PATH=${SCENE_PATH:-/usr/local/lib/python3.11/dist-packages/sionna/rt/scenes/munich/munich.xml}
+      - MI_VARIANT=${MI_VARIANT:-cuda_ad_mono_polarized}
+      - SIONNA_MERGE_SHAPES=${SIONNA_MERGE_SHAPES:-true}
     restart: unless-stopped
