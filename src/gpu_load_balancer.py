@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import os
 from dataclasses import dataclass
 from functools import partial
 from typing import Any, Callable, List, Optional
@@ -12,13 +13,25 @@ MITSUBA_VARIANTS = ("cuda_ad_mono_polarized", "llvm_ad_mono_polarized")
 
 def _ensure_mitsuba_variant() -> None:
     current_variant = mi.variant()
-    if current_variant is not None and "mono_polarized" in current_variant:
+    requested = os.getenv("MI_VARIANT")
+    if requested and current_variant == requested:
         return
 
-    try:
-        mi.set_variant(*MITSUBA_VARIANTS)
-    except ImportError:
-        mi.set_variant(MITSUBA_VARIANTS[-1])
+    if requested:
+        try:
+            mi.set_variant(requested)
+            return
+        except Exception:
+            pass
+
+    for candidate in MITSUBA_VARIANTS:
+        try:
+            mi.set_variant(candidate)
+            return
+        except Exception:
+            continue
+
+    raise RuntimeError("Failed to set a supported Mitsuba variant in worker thread")
 
 
 @dataclass

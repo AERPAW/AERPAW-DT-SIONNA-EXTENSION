@@ -1,5 +1,7 @@
+import asyncio
 import os
 import time
+from contextlib import suppress
 from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
 
@@ -45,12 +47,24 @@ class SionnaFactory:
 
 factory = SionnaFactory()
 gpu_dispatcher: Optional[GpuLoadBalancerService] = None
+_warm_scene_pool: List[str] = []
+_warm_scene_pool_target = 0
+_warm_scene_pool_lock: Optional[asyncio.Lock] = None
+_warm_scene_pool_refill_task: Optional[asyncio.Task] = None
 
 
 def _configured_gpu_ids() -> List[str]:
     raw_gpu_ids = os.getenv("SIONNA_GPU_IDS", "0")
     parsed = [gpu.strip() for gpu in raw_gpu_ids.split(",") if gpu.strip()]
     return parsed or ["0"]
+
+
+def _configured_warm_scene_pool_size() -> int:
+    raw = os.getenv("SIONNA_WARM_SCENE_POOL_SIZE", "1")
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return 1
 
 
 def _require_dispatcher() -> GpuLoadBalancerService:
@@ -63,19 +77,135 @@ async def _dispatch(scene_id: str, fn, *args, **kwargs):
     return await _require_dispatcher().dispatch(scene_id, fn, *args, **kwargs)
 
 
+def _is_default_scene_request(
+    scene_path: Optional[str],
+    scene_origin: Optional[Dict[str, float]],
+    temperature: Optional[float],
+    bandwidth: Optional[float],
+    tx_array: Optional[AntennaArrayType],
+    rx_array: Optional[AntennaArrayType],
+) -> bool:
+    return (
+        scene_path is None
+        and scene_origin is None
+        and temperature is None
+        and bandwidth is None
+        and tx_array is None
+        and rx_array is None
+    )
+
+
+async def _create_and_initialize_scene(
+    scene_path: Optional[str] = None,
+    scene_origin: Optional[Dict[str, float]] = None,
+    temperature: Optional[float] = None,
+    bandwidth: Optional[float] = None,
+    tx_array: Optional[AntennaArrayType] = None,
+    rx_array: Optional[AntennaArrayType] = None,
+) -> str:
+    scene_id = factory.create_scene()
+    engine = factory.get_scene(scene_id)
+    try:
+        await _dispatch(
+            scene_id,
+            engine.initialize,
+            scene_path,
+            scene_origin,
+            temperature,
+            bandwidth,
+            tx_array,
+            rx_array,
+        )
+    except Exception:
+        factory.delete_scene(scene_id)
+        raise
+    return scene_id
+
+
+async def _fill_warm_scene_pool() -> None:
+    global _warm_scene_pool
+
+    if _warm_scene_pool_target <= 0 or _warm_scene_pool_lock is None:
+        return
+
+    while True:
+        async with _warm_scene_pool_lock:
+            remaining = _warm_scene_pool_target - len(_warm_scene_pool)
+        if remaining <= 0:
+            return
+
+        scene_id = await _create_and_initialize_scene()
+        async with _warm_scene_pool_lock:
+            if len(_warm_scene_pool) < _warm_scene_pool_target:
+                _warm_scene_pool.append(scene_id)
+            else:
+                # Another concurrent refill completed first.
+                factory.delete_scene(scene_id)
+
+
+async def _try_take_warm_scene() -> Optional[str]:
+    if _warm_scene_pool_lock is None:
+        return None
+
+    async with _warm_scene_pool_lock:
+        if not _warm_scene_pool:
+            return None
+        return _warm_scene_pool.pop()
+
+
+def _schedule_warm_scene_refill() -> None:
+    global _warm_scene_pool_refill_task
+
+    if _warm_scene_pool_target <= 0:
+        return
+    if (
+        _warm_scene_pool_refill_task is not None
+        and not _warm_scene_pool_refill_task.done()
+    ):
+        return
+
+    async def _refill_task():
+        try:
+            await _fill_warm_scene_pool()
+        except Exception as exc:
+            print(f"Warm scene refill failed: {exc}")
+
+    _warm_scene_pool_refill_task = asyncio.create_task(
+        _refill_task(), name="warm-scene-pool-refill"
+    )
+
+
 async def initialize() -> None:
     """Initialize backend resources and GPU queue workers."""
-    global gpu_dispatcher
+    global gpu_dispatcher, _warm_scene_pool_target, _warm_scene_pool_lock, _warm_scene_pool
     if gpu_dispatcher is not None:
         return
 
     gpu_dispatcher = GpuLoadBalancerService(gpu_ids=_configured_gpu_ids())
     await gpu_dispatcher.start()
 
+    _warm_scene_pool = []
+    _warm_scene_pool_lock = asyncio.Lock()
+    _warm_scene_pool_target = _configured_warm_scene_pool_size()
+    if _warm_scene_pool_target > 0:
+        try:
+            await _fill_warm_scene_pool()
+        except Exception as exc:
+            print(f"Warm scene preloading failed: {exc}")
+
 
 async def shutdown() -> None:
     """Shutdown GPU workers and clean up all scene instances."""
-    global gpu_dispatcher
+    global gpu_dispatcher, _warm_scene_pool_refill_task, _warm_scene_pool_target, _warm_scene_pool_lock
+
+    if _warm_scene_pool_refill_task is not None and not _warm_scene_pool_refill_task.done():
+        _warm_scene_pool_refill_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await _warm_scene_pool_refill_task
+    _warm_scene_pool_refill_task = None
+    _warm_scene_pool.clear()
+    _warm_scene_pool_target = 0
+    _warm_scene_pool_lock = None
 
     if gpu_dispatcher is not None:
         await gpu_dispatcher.shutdown()
@@ -91,21 +221,22 @@ async def create_scene(scene_path: Optional[str] = None,
                        tx_array: Optional[AntennaArrayType] = None,
                        rx_array: Optional[AntennaArrayType] = None) -> str:
     """Create, load, and register a new scene instance."""
-    scene_id = factory.create_scene()
-    engine = factory.get_scene(scene_id)
-    try:
-        await _dispatch(scene_id,
-                        engine.initialize,
-                        scene_path,
-                        scene_origin,
-                        temperature,
-                        bandwidth,
-                        tx_array,
-                        rx_array)
-    except Exception:
-        factory.delete_scene(scene_id)
-        raise
-    return scene_id
+    if _is_default_scene_request(
+        scene_path, scene_origin, temperature, bandwidth, tx_array, rx_array
+    ):
+        warm_scene_id = await _try_take_warm_scene()
+        if warm_scene_id is not None:
+            _schedule_warm_scene_refill()
+            return warm_scene_id
+
+    return await _create_and_initialize_scene(
+        scene_path,
+        scene_origin,
+        temperature,
+        bandwidth,
+        tx_array,
+        rx_array,
+    )
 
 
 async def get_scene_info(scene_id: str) -> Dict:
@@ -278,9 +409,9 @@ async def set_array(
 async def compute_paths(scene_id: str, max_depth: int = 3, num_samples: int = 1e5) -> Dict:
     """Compute propagation paths between transmitters and receivers in a scene."""
     engine = factory.get_scene(scene_id)
-    start = time.time()
+    start = time.perf_counter()
     result = await _dispatch(scene_id, engine.compute_paths, max_depth, num_samples)
-    end = time.time()
+    end = time.perf_counter()
     result["computation_time"] = int((end - start) * 1000)
     return result
 
@@ -288,8 +419,8 @@ async def compute_paths(scene_id: str, max_depth: int = 3, num_samples: int = 1e
 async def get_cir(scene_id: str) -> Dict:
     """Get the Channel Impulse Response for a scene."""
     engine = factory.get_scene(scene_id)
-    start = time.time()
+    start = time.perf_counter()
     result = await _dispatch(scene_id, engine.get_channel_impulse_response)
-    end = time.time()
+    end = time.perf_counter()
     result["computation_time"] = int((end - start) * 1000)
     return result
