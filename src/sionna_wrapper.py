@@ -1,22 +1,35 @@
 import os
 from contextlib import nullcontext
 from typing import Dict, Optional, Tuple, Final
-from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType, CoordinateConverter
 import mitsuba as mi
+import numpy as np
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+# Setting variant and thread environment
+_requested_variant = os.getenv("MI_VARIANT", "cuda_ad_mono_polarized")
+try:
+    mi.set_variant(_requested_variant)
+except Exception:
+    fallback_variant = "llvm_ad_mono_polarized"
+    if _requested_variant == fallback_variant:
+        raise
+    print(
+        f"Failed to set Mitsuba variant '{_requested_variant}'. "
+        f"Falling back to '{fallback_variant}'."
+    )
+    mi.set_variant(fallback_variant)
 
 try:
     import sionna.rt
-except ImportError as e:
-    import os
-
+except ImportError:
     os.system("pip install sionna-rt")
     import sionna.rt
-
-# Other imports
-# %matplotlib inline
-import matplotlib.pyplot as plt
-import numpy as np
-import mitsuba as mi
 
 # Import relevant components from Sionna RT
 from sionna.rt import (
@@ -29,6 +42,7 @@ from sionna.rt import (
     load_scene,
     subcarrier_frequencies,
 )
+from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType, CoordinateConverter
 
 # Default values for scene paths - set in Dockerfile
 SCENE: Final[str] = os.getenv("SCENE_PATH", "../data/scenes/lake-wheeler-scene.xml")
@@ -43,6 +57,14 @@ RX_ARRAY: Final[AntennaArrayType] = AntennaArrayType(AntennaType.Receiver, 1, 1,
 METAL_SC: Final[float] = 0.1
 CONCRETE_SC: Final[float] = 0.3
 GROUND_SC: Final[float] = 0.5
+main_thread_env = mi.ThreadEnvironment() if hasattr(mi, "ThreadEnvironment") else None
+
+
+def _main_thread_context():
+    scoped_env_cls = getattr(mi, "ScopedSetThreadEnvironment", None)
+    if scoped_env_cls is None or main_thread_env is None:
+        return nullcontext()
+    return scoped_env_cls(main_thread_env)
 
 # Setting variant and thread environment
 mi.set_variant("cuda_ad_rgb")
@@ -63,7 +85,25 @@ class Sionna:
         self.receivers: Dict[str, sionna.rt.Receiver] = {}
         self._path_solver = sionna.rt.PathSolver()
         self._computed_paths = None
+        self._computed_paths_params: Optional[Tuple[int, int]] = None
+        self._computed_paths_revision: Optional[int] = None
+        self._cached_path_count: Optional[int] = None
+        self._cached_cir: Optional[Dict] = None
+        self._cached_cir_revision: Optional[int] = None
+        self._scene_revision = 0
         self._coordinate_converter = None
+
+    def _invalidate_computation_cache(self) -> None:
+        self._computed_paths = None
+        self._computed_paths_params = None
+        self._computed_paths_revision = None
+        self._cached_path_count = None
+        self._cached_cir = None
+        self._cached_cir_revision = None
+
+    def _mark_scene_dirty(self) -> None:
+        self._scene_revision += 1
+        self._invalidate_computation_cache()
 
 
     def initialize(self, 
@@ -76,13 +116,25 @@ class Sionna:
                    ) -> None:
         try:
             with _main_thread_context():
-                self.scene = load_scene(scene_path or SCENE)
+                self.scene = load_scene(
+                    scene_path or SCENE,
+                    merge_shapes=_env_bool("SIONNA_MERGE_SHAPES", True),
+                )
 
             # Setting scattering coefficients
-            self.scene.objects.get("building-roofs").radio_material.scattering_coefficient = METAL_SC
-            self.scene.objects.get("building-roofs-shaped").radio_material.scattering_coefficient = METAL_SC
-            self.scene.objects.get("building-walls").radio_material.scattering_coefficient = CONCRETE_SC
-            self.scene.objects.get("terrain-mesh").radio_material.scattering_coefficient = GROUND_SC
+            def _try_set_scatter(name: str, value: float) -> None:
+                obj = self.scene.objects.get(name)
+                if obj is None:
+                    return
+                material = getattr(obj, "radio_material", None)
+                if material is None:
+                    return
+                material.scattering_coefficient = value
+
+            _try_set_scatter("building-roofs", METAL_SC)
+            _try_set_scatter("building-roofs-shaped", METAL_SC)
+            _try_set_scatter("building-walls", CONCRETE_SC)
+            _try_set_scatter("terrain-mesh", GROUND_SC)
 
             # Setting Scene Parameters
             self.scene.temperature = temperature or TEMPERATURE  # For thermal noise power
@@ -90,6 +142,9 @@ class Sionna:
             self.scene.tx_array = tx_array.planar_array if tx_array else TX_ARRAY.planar_array
             self.scene.rx_array = rx_array.planar_array if rx_array else RX_ARRAY.planar_array
             self._coordinate_converter = CoordinateConverter(scene_origin)
+            self.transmitters.clear()
+            self.receivers.clear()
+            self._mark_scene_dirty()
 
             print(f"Successfully loaded scene: {scene_path or SCENE}")
         except Exception as e:
@@ -155,6 +210,7 @@ class Sionna:
 
         self.scene.add(tx)
         self.transmitters[name] = tx
+        self._mark_scene_dirty()
 
         o = tx.orientation
         # Indexing out of a 0d tensor
@@ -186,6 +242,7 @@ class Sionna:
 
         self.scene.add(rx)
         self.receivers[name] = rx
+        self._mark_scene_dirty()
 
         o = rx.orientation
         # Indexing out of a 0d tensor
@@ -218,6 +275,7 @@ class Sionna:
             self.scene.tx_array = antenna_array
         elif ant_type == AntennaType.Receiver:
             self.scene.rx_array = antenna_array
+        self._mark_scene_dirty()
 
 
     def update_transmitter(self, name: str, 
@@ -236,12 +294,13 @@ class Sionna:
                                                                        position[1],
                                                                        position[2])
             device.position = mi.Point3f(list(position)) 
-        if signal_power:
+        if signal_power is not None:
             device.power_dbm = signal_power
         if velocity:
             device.velocity = mi.Vector3f(list(velocity))
         if orientation:
             device.orientation = mi.Point3f(list(orientation))
+        self._mark_scene_dirty()
 
 
     def update_receiver(self, name: str,
@@ -263,6 +322,7 @@ class Sionna:
             device.velocity = mi.Vector3f(list(velocity))
         if orientation:
             device.orientation = mi.Point3f(list(orientation))
+        self._mark_scene_dirty()
 
 
     def compute_paths(self, max_depth: int = 3, num_samples: int = 1e5) -> Dict:
@@ -272,6 +332,21 @@ class Sionna:
 
         if not self.transmitters or not self.receivers:
             raise RuntimeError("No transmitters or receivers in scene")
+
+        max_depth = int(max_depth)
+        num_samples = int(num_samples)
+        params = (max_depth, num_samples)
+
+        if (
+            self._computed_paths is not None
+            and self._computed_paths_params == params
+            and self._computed_paths_revision == self._scene_revision
+        ):
+            return {
+                "path_count": self._cached_path_count or 0,
+                "max_depth": max_depth,
+                "num_samples": num_samples,
+            }
 
         try:
             with _main_thread_context():
@@ -294,6 +369,12 @@ class Sionna:
             # vertices shape is typically [batch, num_rx, num_tx, max_paths, max_depth, 3]
             path_count = int(np.prod(self._computed_paths.vertices.shape[:4]))
 
+        self._computed_paths_params = params
+        self._computed_paths_revision = self._scene_revision
+        self._cached_path_count = path_count
+        self._cached_cir = None
+        self._cached_cir_revision = None
+
         return {
             "path_count": path_count,
             "max_depth": max_depth,
@@ -305,6 +386,13 @@ class Sionna:
         """Return Channel Impulse Response (CIR) from computed paths."""
         if self._computed_paths is None:
             raise RuntimeError("Paths not computed")
+
+        if (
+            self._cached_cir is not None
+            and self._cached_cir_revision is not None
+            and self._cached_cir_revision == self._computed_paths_revision
+        ):
+            return self._cached_cir
 
         try:
             # Use the Paths.cir() method to get channel impulse response
@@ -329,7 +417,7 @@ class Sionna:
             }
 
             # Also provide shape information for easier parsing
-            return {
+            cir = {
                 "delays": delays,
                 "gains": gains,
                 "shape": {
@@ -341,6 +429,9 @@ class Sionna:
                     "num_time_steps": int(a.shape[5]),
                 },
             }
+            self._cached_cir = cir
+            self._cached_cir_revision = self._computed_paths_revision
+            return cir
         except Exception as e:
             import traceback
 
@@ -352,4 +443,4 @@ class Sionna:
         self.transmitters.clear()
         self.receivers.clear()
         self._path_solver = sionna.rt.PathSolver()
-        self._computed_paths = None
+        self._mark_scene_dirty()

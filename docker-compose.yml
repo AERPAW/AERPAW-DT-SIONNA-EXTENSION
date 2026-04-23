@@ -10,7 +10,10 @@ services:
       - NET_ADMIN
     volumes:
       - ./src:/app/src
+      - ./test:/app/test
     environment:
       - PYTHONPATH=/app/src
       - SCENE_PATH=/app/scenes/lake-wheeler-scene.xml
+      - MI_VARIANT=${MI_VARIANT:-cuda_ad_mono_polarized}
+      - SIONNA_MERGE_SHAPES=${SIONNA_MERGE_SHAPES:-true}
     restart: unless-stopped

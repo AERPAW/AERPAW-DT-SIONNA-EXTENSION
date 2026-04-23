@@ -1,32 +1,43 @@
-### Sionna Interface for AERPAW Digital Twin
+# aerpaw_sionna_test
 
-This tool provides fastAPI endpoints, a sionna wrapper and controller system that act together to provide following functionality:
-- Load scene
-- Reset
-- Add, update, remove Transmitter/Receiver
-- calculate paths and CIR
+## GPU Run (Proper Sionna Scene)
 
-For api reference, refer to schemas.py or FastAPI docs. 
+The default scene path in compose points to Sionna's built-in Munich scene:
 
-#### Setup
-##### Basic Setup
-To get the repository up and running:
-1) Clone this repository: `git clone git@github.com:AERPAW/AERPAW-DT-SIONNA-EXTENSION.git`
-2) Go to the directory: `cd aerpaw_sionna`
-3) Create a virtual environment and activate it: `python -m venv venv && source venv/bin/activate`
-4) Install the required dependencies: `pip install -r requirements.txt`
-5) Go into src/ and run the application: `cd src && uvicorn app:app --reload`
+- `/usr/local/lib/python3.11/dist-packages/sionna/rt/scenes/munich/munich.xml`
 
-##### Docker 
-To run the code with docker, after cloning the repository, run the following:
-1) `sudo docker compose up --build`
-2) Go to `http://127.0.0.1:8000/docs` for testing and reference documentation
+Start with GPU enabled:
 
-Relevant files:
-scenes/ -- contains the scenes that can be loaded (not tested with custom scenes right now)
-app.py -- API endpoints
-main.py -- orchestration and business logic
-siona_wrapper.py -- wrapper class to sionna providing core functionality
-schemas.py -- schemas (pydantic) for API 
-utils.py -- utility functions and enum classes
-Docker-compose and Dockerfile -- Docker setup and configuration
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build -d
+```
+
+Run latency benchmark:
+
+```bash
+docker compose exec -T sionna-api python /app/test/gpu_latency_benchmark.py \
+  --iterations 20 \
+  --max-depth 3 \
+  --num-samples 100000
+```
+
+Optional custom scene:
+
+```bash
+docker compose exec -T sionna-api python /app/test/gpu_latency_benchmark.py \
+  --scene-path /path/to/scene.xml
+```
+
+## Bare-Metal GPU Run
+
+Start API on host GPU:
+
+```bash
+./scripts/run_baremetal_gpu.sh
+```
+
+In another terminal, run benchmark:
+
+```bash
+./scripts/bench_latency.sh
+```
