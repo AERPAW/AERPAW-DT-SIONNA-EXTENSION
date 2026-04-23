@@ -1,5 +1,5 @@
-# Use Python 3.12 as base image
-FROM tensorflow/tensorflow:2.16.1-gpu
+# Pulling PyTorch base image for Sionna v2
+FROM pytorch/pytorch:2.9.0-cuda13.0-cudnn9-runtime
 
 # Set working directory
 WORKDIR /app
@@ -15,6 +15,8 @@ RUN apt-get update && apt-get install -y \
   libgl1 \
   libglib2.0-0 \
   libgomp1 \
+  iproute2 \
+  iputils-ping \
   && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -44,6 +46,6 @@ EXPOSE 8000
 # Set the working directory to src for running 
 WORKDIR /app/src
 
-# Run the FastAPI application with uvicorn
+# Binding to default port, then it will be recognized by the interface
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
 

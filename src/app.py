@@ -282,10 +282,10 @@ async def update_rx(scene_id: str, name: str, data: ReceiverUpdate):
         return DeviceResponse(
             name=result["name"], 
             type="rx",
-            position=GeoPosition.from_tuple(result["position"]),
+            position=GeoPosition.from_tuple(result["position"]) if result["position"] else None,
             signal_power=None,
-            velocity=Vector3D.from_tuple(result["velocity"]),
-            orientation=Vector3D.from_tuple(result["orientation"]),
+            velocity=Vector3D.from_tuple(result["velocity"]) if result["velocity"] else None,
+            orientation=Vector3D.from_tuple(result["orientation"]) if result["orientation"] else None,
         )
     except main.SceneNotFoundError:
         _raise_scene_not_found(scene_id)

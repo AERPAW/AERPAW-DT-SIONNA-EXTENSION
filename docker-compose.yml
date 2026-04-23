@@ -1,13 +1,13 @@
 services:
-  sionna-api:
+  aerpaw-sionna-api:
     build:
       context: .
       network: host
       dockerfile: Dockerfile
     container_name: aerpaw-sionna-api
     gpus: all
-    ports:
-      - "0.0.0.0:8000:8000"
+    cap_add:
+      - NET_ADMIN
     volumes:
       - ./src:/app/src
     environment:
