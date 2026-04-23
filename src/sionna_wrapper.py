@@ -45,10 +45,7 @@ from sionna.rt import (
 from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType, CoordinateConverter
 
 # Default values for scene paths - set in Dockerfile
-SCENE: Final[str] = os.getenv(
-    "SCENE_PATH",
-    "/usr/local/lib/python3.11/dist-packages/sionna/rt/scenes/munich/munich.xml",
-)
+SCENE: Final[str] = os.getenv("SCENE_PATH", "../data/scenes/lake-wheeler-scene.xml")
 
 # Default values for scene parameters
 TEMPERATURE: Final[float] = 300.0  # Temperaure in Kelvin
@@ -60,6 +57,17 @@ RX_ARRAY: Final[AntennaArrayType] = AntennaArrayType(AntennaType.Receiver, 1, 1,
 METAL_SC: Final[float] = 0.1
 CONCRETE_SC: Final[float] = 0.3
 GROUND_SC: Final[float] = 0.5
+main_thread_env = mi.ThreadEnvironment() if hasattr(mi, "ThreadEnvironment") else None
+
+
+def _main_thread_context():
+    scoped_env_cls = getattr(mi, "ScopedSetThreadEnvironment", None)
+    if scoped_env_cls is None or main_thread_env is None:
+        return nullcontext()
+    return scoped_env_cls(main_thread_env)
+
+# Setting variant and thread environment
+mi.set_variant("cuda_ad_rgb")
 main_thread_env = mi.ThreadEnvironment() if hasattr(mi, "ThreadEnvironment") else None
 
 

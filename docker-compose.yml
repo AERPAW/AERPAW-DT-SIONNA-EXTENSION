@@ -5,6 +5,9 @@ services:
       network: host
       dockerfile: Dockerfile
     container_name: aerpaw-sionna-api
+    gpus: all
+    cap_add:
+      - NET_ADMIN
     volumes:
       - ./src:/app/src
       - ./test:/app/test
