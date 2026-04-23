@@ -1,5 +1,5 @@
 services:
-  sionna-api:
+  aerpaw-sionna-api:
     gpus: all
     environment:
       - MI_VARIANT=cuda_ad_mono_polarized

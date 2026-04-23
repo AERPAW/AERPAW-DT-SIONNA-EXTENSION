@@ -48,4 +48,3 @@ WORKDIR /app/src
 
 # Binding to default port, then it will be recognized by the interface
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
-
