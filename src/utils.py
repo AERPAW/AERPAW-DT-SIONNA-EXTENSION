@@ -7,7 +7,7 @@ from pyproj.enums import TransformDirection
 # Position of LW1 in lat/lon/alt - (deg/deg/m)
 ORIGIN_LAT_LON: Final[Dict[str, float]] = {"lat": 35.72750947, "lon": -78.69595819, "alt": 82.973}
 # XYZ Offset Based on Lake Wheeler Scene - (ft/ft/ft)
-SIONNA_OFFSET: Final[List[float]] = [2020.5, 1971.5, 43]
+SIONNA_OFFSET: Final[List[float]] = [2020.5, 1971.5, 312]
 
 
 class AntennaType(Enum):
