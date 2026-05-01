@@ -45,7 +45,7 @@ from sionna.rt import (
 from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType, CoordinateConverter
 
 # Default values for scene paths - set in Dockerfile
-SCENE: Final[str] = os.getenv("SCENE_PATH", "../data/scenes/lake-wheeler-scene.xml")
+SCENE: Final[str] = os.getenv("SCENE_PATH", "../data/anil/test.xml")
 
 # Default values for scene parameters
 TEMPERATURE: Final[float] = 300.0  # Temperaure in Kelvin
