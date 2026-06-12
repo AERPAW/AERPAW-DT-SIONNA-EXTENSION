@@ -1,9 +1,12 @@
 import os
+import time
 from contextlib import nullcontext
 from typing import Dict, Optional, Tuple, Final
 import mitsuba as mi
 import numpy as np
+import drjit as dr
 
+dr.set_flag(dr.JitFlag.Debug, True)
 
 def _env_bool(name: str, default: bool) -> bool:
     raw = os.getenv(name)
@@ -42,7 +45,7 @@ from sionna.rt import (
     load_scene,
     subcarrier_frequencies,
 )
-from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType, CoordinateConverter
+from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType, CoordinateConverter, SIONNA_OFFSET
 
 # Default values for scene paths - set in Dockerfile
 SCENE: Final[str] = os.getenv("SCENE_PATH", "../data/scenes/lake-wheeler-scene.xml")
@@ -368,6 +371,26 @@ class Sionna:
         ):
             # vertices shape is typically [batch, num_rx, num_tx, max_paths, max_depth, 3]
             path_count = int(np.prod(self._computed_paths.vertices.shape[:4]))
+
+        # ------ RENDERING CODE START -------- #
+        # Creating a camera at the origin looking down
+        with _main_thread_context():
+            camera = Camera(
+                position=SIONNA_OFFSET, 
+                look_at=(SIONNA_OFFSET[0], SIONNA_OFFSET[1], SIONNA_OFFSET[2] - 1)
+            )
+
+            # Rendering to file
+            filepath = "/app/renders/render_" + str(int(time.time())) + ".png"
+            print(f'Rendering to {filepath}')
+            self.scene.render_to_file(
+                camera=camera,
+                filename=filepath,
+                resolution=[600,600],
+                num_samples=512,
+                paths=self._computed_paths
+            )
+        # ------ RENDERING CODE END -------- #
 
         self._computed_paths_params = params
         self._computed_paths_revision = self._scene_revision

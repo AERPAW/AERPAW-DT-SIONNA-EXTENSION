@@ -5,13 +5,17 @@ services:
       network: host
       dockerfile: Dockerfile
     container_name: aerpaw-sionna-api
+    user: "${UID:-1000}:${GID:-1000}"
     gpus: all
     cap_add:
       - NET_ADMIN
     volumes:
       - ./src:/app/src
       - ./test:/app/test
+      - /home/eftucker/logs:/app/logs
+      - /home/eftucker/renders:/app/renders
     environment:
+      - HOME=/tmp
       - PYTHONPATH=/app/src
       - SCENE_PATH=/app/scenes/lake-wheeler-scene.xml
       - MI_VARIANT=${MI_VARIANT:-cuda_ad_mono_polarized}

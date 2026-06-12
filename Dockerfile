@@ -19,6 +19,14 @@ RUN apt-get update && apt-get install -y \
   iputils-ping \
   && rm -rf /var/lib/apt/lists/*
 
+# Making mounting directories for logs and renders
+RUN mkdir -p /app/logs
+RUN mkdir -p /app/renders
+
+# Documenting volumes for mounting
+VOLUME ["/app/logs"]
+VOLUME ["/app/renders"]
+
 COPY requirements.txt .
 
 # Install Python dependencies

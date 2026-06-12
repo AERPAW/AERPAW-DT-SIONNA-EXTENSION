@@ -2,6 +2,10 @@
 
 IP_ADDRESS=192.168.60.105/20
 
+# Making local mounting directories
+mkdir -p /home/eftucker/logs
+mkdir -p /home/eftucker/renders
+
 # Ensuring OVS and NIC are active
 sudo ip link set br-AD up
 sudo ip link set enp23s0f0 up
