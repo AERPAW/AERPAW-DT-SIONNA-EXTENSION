@@ -48,7 +48,7 @@ from sionna.rt import (
 from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType, CoordinateConverter, SIONNA_OFFSET
 
 # Default values for scene paths - set in Dockerfile
-SCENE: Final[str] = os.getenv("SCENE_PATH", "../data/scenes/lake-wheeler-scene.xml")
+SCENE: Final[str] = os.getenv("SCENE_PATH", "../data/scenes/lw_1_aerpaw.xml")
 
 # Default values for scene parameters
 TEMPERATURE: Final[float] = 300.0  # Temperaure in Kelvin
@@ -374,22 +374,27 @@ class Sionna:
 
         # ------ RENDERING CODE START -------- #
         # Creating a camera at the origin looking down
-        with _main_thread_context():
-            camera = Camera(
-                position=SIONNA_OFFSET, 
-                look_at=(SIONNA_OFFSET[0], SIONNA_OFFSET[1], SIONNA_OFFSET[2] - 1)
-            )
+        try:
+            with _main_thread_context():
+                # Camera at the offset position looking down
+                pos = [SIONNA_OFFSET[0], SIONNA_OFFSET[1], SIONNA_OFFSET[2] + 200]  # Camera position above origin
+                camera = Camera(
+                    position=pos, 
+                    look_at=(pos[0], pos[1], pos[2] - 1)
+                )
 
-            # Rendering to file
-            filepath = "/app/renders/render_" + str(int(time.time())) + ".png"
-            print(f'Rendering to {filepath}')
-            self.scene.render_to_file(
-                camera=camera,
-                filename=filepath,
-                resolution=[600,600],
-                num_samples=512,
-                paths=self._computed_paths
-            )
+                # Rendering to file
+                filepath = "/app/renders/render_" + str(int(time.time())) + ".png"
+                print(f'Rendering to {filepath}')
+                self.scene.render_to_file(
+                    camera=camera,
+                    filename=filepath,
+                    resolution=[600,600],
+                    num_samples=512,
+                    paths=self._computed_paths
+                )
+        except Exception as e:
+            print(f"Rendering code error - not fatal: {e}")
         # ------ RENDERING CODE END -------- #
 
         self._computed_paths_params = params

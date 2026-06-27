@@ -2,22 +2,22 @@ services:
   aerpaw-sionna-api:
     build:
       context: .
-      network: host
       dockerfile: Dockerfile
-    container_name: aerpaw-sionna-api
+    container_name: aerpaw-sionna-api-local
     user: "${UID:-1000}:${GID:-1000}"
     gpus: all
-    cap_add:
-      - NET_ADMIN
+    ports:
+      - "8000:8000" 
     volumes:
       - ./src:/app/src
       - ./test:/app/test
-      - /home/eftucker/logs:/app/logs
-      - /home/eftucker/renders:/app/renders
+      - ./logs:/app/logs
+      - ./renders:/app/renders
+      - ./data/scenes/lw_1_aerpaw:/app/scenes/lw_1_aerpaw:ro
     environment:
       - HOME=/tmp
-      - PYTHONPATH=/app/src
-      - SCENE_PATH=/app/scenes/lake-wheeler-scene.xml
+      # - PYTHONPATH=/app/src  # No PYTHONPATH for local
+      - SCENE_PATH=/app/scenes/lw_1_aerpaw/lw_1_aerpaw.xml
       - MI_VARIANT=${MI_VARIANT:-cuda_ad_mono_polarized}
       - SIONNA_MERGE_SHAPES=${SIONNA_MERGE_SHAPES:-true}
     restart: unless-stopped

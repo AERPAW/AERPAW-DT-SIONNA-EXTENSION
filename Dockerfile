@@ -45,8 +45,8 @@ COPY data/scenes/meshes/lake-wheeler-building-walls-output.ply /app/scenes/meshe
 COPY data/scenes/meshes/terrain-mesh-small-output.ply /app/scenes/meshes/
 
 # Setting environment variables for the containerized version
-ENV PYTHONPATH=/app/src:$PYTHONPATH
-ENV SCENE_PATH=/app/scenes/lake-wheeler-scene.xml
+# ENV PYTHONPATH=/app/src:$PYTHONPATH  # No PYTHONPATH for local development
+ENV SCENE_PATH=/app/scenes/lw_1_aerpaw.xml
 
 # Expose the fastAPI port for running it
 EXPOSE 8000
