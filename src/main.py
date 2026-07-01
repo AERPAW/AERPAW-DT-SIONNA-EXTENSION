@@ -84,6 +84,9 @@ def _is_default_scene_request(
     bandwidth: Optional[float],
     tx_array: Optional[AntennaArrayType],
     rx_array: Optional[AntennaArrayType],
+    scene_config: Optional[str] = None,
+    offset: Optional[list] = None,
+    scale: Optional[float] = None,
 ) -> bool:
     return (
         scene_path is None
@@ -92,6 +95,9 @@ def _is_default_scene_request(
         and bandwidth is None
         and tx_array is None
         and rx_array is None
+        and scene_config is None
+        and offset is None
+        and scale is None
     )
 
 
@@ -102,6 +108,9 @@ async def _create_and_initialize_scene(
     bandwidth: Optional[float] = None,
     tx_array: Optional[AntennaArrayType] = None,
     rx_array: Optional[AntennaArrayType] = None,
+    scene_config: Optional[str] = None,
+    offset: Optional[list] = None,
+    scale: Optional[float] = None,
 ) -> str:
     scene_id = factory.create_scene()
     engine = factory.get_scene(scene_id)
@@ -115,6 +124,9 @@ async def _create_and_initialize_scene(
             bandwidth,
             tx_array,
             rx_array,
+            scene_config,
+            offset,
+            scale,
         )
     except Exception:
         factory.delete_scene(scene_id)
@@ -219,10 +231,14 @@ async def create_scene(scene_path: Optional[str] = None,
                        temperature: Optional[float] = None,
                        bandwidth: Optional[float] = None,
                        tx_array: Optional[AntennaArrayType] = None,
-                       rx_array: Optional[AntennaArrayType] = None) -> str:
+                       rx_array: Optional[AntennaArrayType] = None,
+                       scene_config: Optional[str] = None,
+                       offset: Optional[list] = None,
+                       scale: Optional[float] = None) -> str:
     """Create, load, and register a new scene instance."""
     if _is_default_scene_request(
-        scene_path, scene_origin, temperature, bandwidth, tx_array, rx_array
+        scene_path, scene_origin, temperature, bandwidth, tx_array, rx_array,
+        scene_config, offset, scale,
     ):
         warm_scene_id = await _try_take_warm_scene()
         if warm_scene_id is not None:
@@ -236,7 +252,15 @@ async def create_scene(scene_path: Optional[str] = None,
         bandwidth,
         tx_array,
         rx_array,
+        scene_config,
+        offset,
+        scale,
     )
+
+
+async def list_scenes() -> List[str]:
+    """Return the ids of all currently loaded scenes."""
+    return list(factory._instances.keys())
 
 
 async def get_scene_info(scene_id: str) -> Dict:
@@ -424,3 +448,29 @@ async def get_cir(scene_id: str) -> Dict:
     end = time.perf_counter()
     result["computation_time"] = int((end - start) * 1000)
     return result
+
+
+async def render_scene(
+    scene_id: str,
+    width: int = 960,
+    height: int = 720,
+    num_samples: int = 96,
+    show_paths: bool = True,
+    max_depth: int = 3,
+    view_from: str = "north",
+) -> bytes:
+    """Render the current scene state (nodes + rays) for image"""
+    engine = factory.get_scene(scene_id)
+    return await _dispatch(
+        scene_id,
+        engine.render,
+        width,
+        height,
+        num_samples,
+        show_paths,
+        max_depth,
+        int(1e5),
+        28.0,
+        2.2,
+        view_from,
+    )
