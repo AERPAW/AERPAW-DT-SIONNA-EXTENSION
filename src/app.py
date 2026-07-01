@@ -23,6 +23,8 @@ from schemas import (
     StatusResponse,
 )
 
+from fastapi.responses import StreamingResponse
+
 try:
     from fastapi.responses import ORJSONResponse
 except ImportError:
@@ -80,6 +82,9 @@ async def create_scene(payload: Optional[SceneCreateRequest] = None):
             bandwidth=payload.bandwidth if payload else None,
             tx_array=payload.tx_array.to_class() if payload and payload.tx_array else None,
             rx_array=payload.rx_array.to_class() if payload and payload.rx_array else None,
+            scene_config=payload.scene_config if payload else None,
+            offset=list(payload.scene_offset.to_tuple()) if payload and payload.scene_offset else None,
+            scale=payload.scale if payload else None,
         )
         return SceneCreateResponse(scene_id=scene_id)
     except RuntimeError as e:
@@ -87,6 +92,12 @@ async def create_scene(payload: Optional[SceneCreateRequest] = None):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create scene: {str(e)}",
         )
+
+
+@app.get("/scenes", response_model=List[str], tags=["Scene"])
+async def list_scenes():
+    """List ids of all currently loaded scenes."""
+    return await main.list_scenes()
 
 
 @app.put("/scenes/{scene_id}/update_origin", response_model=GeoPosition, tags=["Scene"])
@@ -334,6 +345,45 @@ async def compute_paths(scene_id: str, params: PathComputationRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to compute paths: {str(e)}",
+        )
+
+
+@app.get(
+    "/scenes/{scene_id}/render",
+    tags=["Debug"],
+    responses={200: {"content": {"image/png": {}}}},
+)
+async def render_scene(
+    scene_id: str,
+    width: int = 960,
+    height: int = 720,
+    num_samples: int = 96,
+    show_paths: bool = True,
+    max_depth: int = 3,
+    view_from: str = "north",
+):
+    """Render the current scene (nodes + ray overlay) to an image for debugging.
+
+    Frames whatever TX/RX are currently in the scene and overlays the most
+    recently computed paths 
+    """
+    try:
+        png = await main.render_scene(
+            scene_id,
+            width=width,
+            height=height,
+            num_samples=num_samples,
+            show_paths=show_paths,
+            max_depth=max_depth,
+            view_from=view_from,
+        )
+        return StreamingResponse(iter([png]), media_type="image/png")
+    except main.SceneNotFoundError:
+        _raise_scene_not_found(scene_id)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to render scene: {str(e)}",
         )
 
 

@@ -43,9 +43,10 @@ from sionna.rt import (
     subcarrier_frequencies,
 )
 from utils import AntennaType, AntennaArrayType, RadiationPattern, PolarizationType, CoordinateConverter
+from scene_config import get_scene_config, SceneConfig
 
-# Default values for scene paths - set in Dockerfile
-SCENE: Final[str] = os.getenv("SCENE_PATH", "../data/scenes/lake-wheeler-scene.xml")
+# Optional scene path override (else taken from the resolved SceneConfig).
+SCENE: Final[Optional[str]] = os.getenv("SCENE_PATH")
 
 # Default values for scene parameters
 TEMPERATURE: Final[float] = 300.0  # Temperaure in Kelvin
@@ -92,6 +93,8 @@ class Sionna:
         self._cached_cir_revision: Optional[int] = None
         self._scene_revision = 0
         self._coordinate_converter = None
+        self._scene_config: Optional[SceneConfig] = None
+        self._scene_path: Optional[str] = None
 
     def _invalidate_computation_cache(self) -> None:
         self._computed_paths = None
@@ -106,18 +109,29 @@ class Sionna:
         self._invalidate_computation_cache()
 
 
-    def initialize(self, 
+    def initialize(self,
                    scene_path: Optional[str] = None,
                    scene_origin: Optional[Dict[str, float]] = None,
                    temperature: Optional[float] = TEMPERATURE,
                    bandwidth: Optional[float] = BANDWIDTH,
                    tx_array: Optional[AntennaArrayType] = TX_ARRAY,
                    rx_array: Optional[AntennaArrayType] = RX_ARRAY,
+                   scene_config: Optional[str] = None,
+                   offset: Optional[list] = None,
+                   scale: Optional[float] = None,
                    ) -> None:
         try:
+            cfg = get_scene_config(scene_config or os.getenv("SCENE_CONFIG"))
+            self._scene_config = cfg
+            effective_path = scene_path or SCENE or cfg.scene_path
+            effective_origin = scene_origin or cfg.origin
+            effective_offset = offset if offset is not None else cfg.offset
+            effective_scale = scale if scale is not None else cfg.scale
+            self._scene_path = effective_path
+
             with _main_thread_context():
                 self.scene = load_scene(
-                    scene_path or SCENE,
+                    effective_path,
                     merge_shapes=_env_bool("SIONNA_MERGE_SHAPES", True),
                 )
 
@@ -141,12 +155,14 @@ class Sionna:
             self.scene.bandwidth = bandwidth or BANDWIDTH  # For thermal noise power
             self.scene.tx_array = tx_array.planar_array if tx_array else TX_ARRAY.planar_array
             self.scene.rx_array = rx_array.planar_array if rx_array else RX_ARRAY.planar_array
-            self._coordinate_converter = CoordinateConverter(scene_origin)
+            self._coordinate_converter = CoordinateConverter(
+                effective_origin, offset=effective_offset, scale=effective_scale
+            )
             self.transmitters.clear()
             self.receivers.clear()
             self._mark_scene_dirty()
 
-            print(f"Successfully loaded scene: {scene_path or SCENE}")
+            print(f"Successfully loaded scene '{cfg.name}': {effective_path}")
         except Exception as e:
             raise RuntimeError(f"Failed to load scene: {e}")
 
@@ -174,6 +190,11 @@ class Sionna:
             "rx_array": rx_array,
             "temperature": self.scene.temperature[0],
             "coordinate_reference": self._coordinate_converter.get_origin(),
+            "scene_config": self._scene_config.name if self._scene_config else None,
+            "scene_path": self._scene_path,
+            "offset": self._coordinate_converter.get_offset(),
+            "scale": self._coordinate_converter.get_scale(),
+            "units": self._scene_config.units if self._scene_config else "m",
         }
     
 
@@ -437,6 +458,88 @@ class Sionna:
 
             raise RuntimeError(f"Failed to extract CIR: {e}\n{traceback.format_exc()}")
 
+
+    def _device_positions(self) -> "np.ndarray":
+        pts = []
+        for d in list(self.transmitters.values()) + list(self.receivers.values()):
+            pts.append(np.array(d.position).ravel()[:3])
+        if not pts:
+            bb = self.scene.mi_scene.bbox()
+            pts = [np.array(bb.min), np.array(bb.max)]
+        return np.asarray(pts, dtype=float)
+
+    def _framing_camera(self, points, elevation_deg=28.0, dist_factor=2.2,
+                        min_dist=80.0, view_from="north"):
+        pts = np.asarray(points, dtype=float)
+        pmin, pmax = pts.min(0), pts.max(0)
+        mid = (pmin + pmax) / 2.0
+        span = float(np.linalg.norm((pmax - pmin)[:2])) or min_dist
+        dist = max(span * dist_factor, min_dist)
+        elev = np.radians(elevation_deg)
+        # +Y (north) view keeps on-screen motion consistent with a north-up map.
+        sign = -1.0 if view_from == "south" else 1.0
+        pos = [float(mid[0]),
+               float(mid[1] + sign * dist * np.cos(elev)),
+               float(mid[2] + dist * np.sin(elev))]
+        look = [float(mid[0]), float(mid[1]), float(mid[2])]
+        return Camera(position=pos, look_at=look)
+
+    def render(self, width: int = 960, height: int = 720, num_samples: int = 96,
+               show_paths: bool = True, max_depth: int = 3,
+               path_samples: int = int(1e5), elevation_deg: float = 28.0,
+               dist_factor: float = 2.2, view_from: str = "north",
+               device_display_radius: float = 2.0) -> bytes:
+        """Render the current scene (devices + optional ray overlay) to a PNG 
+        """
+        import tempfile
+        if not self.scene:
+            raise RuntimeError("No scene loaded")
+
+        for d in list(self.transmitters.values()) + list(self.receivers.values()):
+            d.display_radius = device_display_radius
+
+        camera = self._framing_camera(
+            self._device_positions(), elevation_deg, dist_factor, view_from=view_from
+        )
+
+        paths = None
+        if show_paths and self.transmitters and self.receivers:
+            if (self._computed_paths is not None
+                    and self._computed_paths_revision == self._scene_revision):
+                paths = self._computed_paths
+            else:
+                with _main_thread_context():
+                    paths = self._path_solver(
+                        scene=self.scene, max_depth=int(max_depth),
+                        samples_per_src=int(path_samples),
+                        max_num_paths_per_src=int(path_samples),
+                        los=True, specular_reflection=True,
+                        diffuse_reflection=False, refraction=True,
+                    )
+
+        fd, tmp_path = tempfile.mkstemp(suffix=".png")
+        os.close(fd)
+
+        def _do_render(with_paths):
+            with _main_thread_context():
+                self.scene.render_to_file(
+                    filename=tmp_path, camera=camera, paths=with_paths,
+                    resolution=[int(width), int(height)],
+                    num_samples=int(num_samples), show_devices=True,
+                )
+
+        try:
+            _do_render(paths)
+        except Exception:
+            # In case of any failure, render without any rays
+            _do_render(None)
+
+        try:
+            with open(tmp_path, "rb") as f:
+                return f.read()
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
 
     def reset(self) -> None:
         """Reset the simulation state."""

@@ -180,13 +180,33 @@ class SceneInfoResponse(BaseModel):
     coordinate_reference: GeoPosition = Field(
         description="Lat/lon/alt origin used for local Sionna coordinate conversion"
     )
+    scene_config: Optional[str] = Field(
+        None, description="Name of the resolved scene config entry"
+    )
+    scene_path: Optional[str] = None
+    offset: Optional[List[float]] = Field(
+        None, description="Scene XYZ offset applied after ENU*scale"
+    )
+    scale: Optional[float] = Field(
+        None, description="Meters->scene-unit scale (1.0 == meters)"
+    )
+    units: Optional[str] = None
 
 
 class SceneCreateRequest(BaseModel):
     scene_path: Optional[str] = Field(
-        None, description="Optional custom scene path. Defaults to bundled Sionna scene."
+        None, description="Optional explicit scene .xml path. Overrides the config's path."
+    )
+    scene_config: Optional[str] = Field(
+        None, description="Named entry in scenes.json (e.g. 'aerpaw'). Defaults to the file's default."
     )
     scene_origin: Optional[GeoPosition] = None
+    scene_offset: Optional[Vector3D] = Field(
+        None, description="Override scene XYZ offset (scene units)."
+    )
+    scale: Optional[float] = Field(
+        None, description="Override meters->scene-unit scale."
+    )
     temperature: Optional[float] = None
     bandwidth: Optional[float] = None
     tx_array: Optional[AntennaArrayConfig] = None
