@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Poll a running Sionna RT server and save a render of every scene each second.
 
+Saves each frame to <out>/<scene_id>/<timestamp>.png (never overwrites).
+
     python poll_render.py                       # localhost:8000, every 1s
     python poll_render.py --url http://host:8000 --interval 2
     python poll_render.py --scene <id>          # only this scene
-    python poll_render.py --timestamped         # keep every frame (not just latest)
 """
 import os
 import sys
@@ -52,13 +53,12 @@ def main():
     ap.add_argument("--out", default="renders_live", help="Output directory")
     ap.add_argument("--scene", action="append", dest="scenes", help="Specific scene id (repeatable). Default: all")
     ap.add_argument("--create", action="store_true", help="Create an aerpaw scene first and poll it")
-    ap.add_argument("--width", type=int, default=960)
-    ap.add_argument("--height", type=int, default=720)
+    ap.add_argument("--width", type=int, default=1920)
+    ap.add_argument("--height", type=int, default=1080)
     ap.add_argument("--num-samples", type=int, default=96)
     ap.add_argument("--max-depth", type=int, default=3)
     ap.add_argument("--view-from", default="north", choices=["north", "south"])
     ap.add_argument("--no-paths", action="store_true", help="Do not overlay rays")
-    ap.add_argument("--timestamped", action="store_true", help="Keep every frame (default overwrites latest)")
     args = ap.parse_args()
 
     base = args.url.rstrip("/")
@@ -95,7 +95,7 @@ def main():
             print(f"[{dt.datetime.now():%H:%M:%S}] no scenes available")
 
         for sid in scenes:
-            stamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+            stamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
             try:
                 png, ctype = render_scene(base, sid, render_params)
             except error.HTTPError as e:
@@ -109,8 +109,9 @@ def main():
                 print(f"[{stamp}] {sid[:8]}: unexpected content-type {ctype!r}")
                 continue
 
-            name = f"{sid}_{stamp}.png" if args.timestamped else f"{sid}.png"
-            path = os.path.join(args.out, name)
+            scene_dir = os.path.join(args.out, sid)
+            os.makedirs(scene_dir, exist_ok=True)
+            path = os.path.join(scene_dir, f"{stamp}.png")
             with open(path, "wb") as f:
                 f.write(png)
             print(f"[{stamp}] {sid[:8]}: saved {path} ({len(png)} bytes)")

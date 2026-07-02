@@ -29,16 +29,11 @@ RUN pip install --upgrade pip && \
 # Copy application source code
 COPY src/ ./src/
 
-# Adding Scene Files
-COPY data/scenes/lake-wheeler-scene.xml /app/scenes/
-COPY data/scenes/meshes/lake-wheeler-building-roofs-output.ply /app/scenes/meshes/
-COPY data/scenes/meshes/lake-wheeler-building-roofs-shaped-output.ply /app/scenes/meshes/
-COPY data/scenes/meshes/lake-wheeler-building-walls-output.ply /app/scenes/meshes/
-COPY data/scenes/meshes/terrain-mesh-small-output.ply /app/scenes/meshes/
+COPY data/sionna_export/ /app/data/sionna_export/
 
 # Setting environment variables for the containerized version
 ENV PYTHONPATH=/app/src:$PYTHONPATH
-ENV SCENE_PATH=/app/scenes/lake-wheeler-scene.xml
+ENV SCENE_CONFIG=aerpaw
 
 # Expose the fastAPI port for running it
 EXPOSE 8000

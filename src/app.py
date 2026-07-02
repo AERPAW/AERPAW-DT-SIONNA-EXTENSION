@@ -355,8 +355,8 @@ async def compute_paths(scene_id: str, params: PathComputationRequest):
 )
 async def render_scene(
     scene_id: str,
-    width: int = 960,
-    height: int = 720,
+    width: int = 1920,
+    height: int = 1080,
     num_samples: int = 96,
     show_paths: bool = True,
     max_depth: int = 3,

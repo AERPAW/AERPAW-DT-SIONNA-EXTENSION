@@ -11,9 +11,12 @@ services:
     volumes:
       - ./src:/app/src
       - ./test:/app/test
+      - ./data:/app/data          
     environment:
       - PYTHONPATH=/app/src
-      - SCENE_PATH=/app/scenes/lake-wheeler-scene.xml
+      - SCENE_CONFIG=${SCENE_CONFIG:-aerpaw}
+      # Leave SCENE_PATH unset so the preset's path is used
+      # - SCENE_PATH=
       - MI_VARIANT=${MI_VARIANT:-cuda_ad_mono_polarized}
       - SIONNA_MERGE_SHAPES=${SIONNA_MERGE_SHAPES:-true}
     restart: unless-stopped

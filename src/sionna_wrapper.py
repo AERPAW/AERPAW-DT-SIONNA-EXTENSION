@@ -484,7 +484,7 @@ class Sionna:
         look = [float(mid[0]), float(mid[1]), float(mid[2])]
         return Camera(position=pos, look_at=look)
 
-    def render(self, width: int = 960, height: int = 720, num_samples: int = 96,
+    def render(self, width: int = 1920, height: int = 1080, num_samples: int = 96,
                show_paths: bool = True, max_depth: int = 3,
                path_samples: int = int(1e5), elevation_deg: float = 28.0,
                dist_factor: float = 2.2, view_from: str = "north",
