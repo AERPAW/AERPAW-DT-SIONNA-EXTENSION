@@ -24,13 +24,13 @@ FRAME_DIR = os.path.join(OUTPUT_DIR, "frames")
 VIDEO_PATH = os.path.join(OUTPUT_DIR, "render.mp4")
 
 # From experiment
-WAYPOINTS_CSV = "2026-05-21_17_38_vehicle_log.csv"
+WAYPOINTS_CSV = "test/2026-05-21_17_38_vehicle_log.csv"
 MAX_FRAMES = 150          
 FPS = 15                  # output video frame rate
 
 GROUND_ALT_HAE = 112.0
 SCENE_ORIGIN = {"lat": 35.72750947, "lon": -78.69595819, "alt": GROUND_ALT_HAE}
-SCENE_OFFSET = np.array([118.1, -123.4, 0.0])
+SCENE_OFFSET = np.array([-3.7, 3.4, 0.0])
 
 TOWER_XYZ = [float(SCENE_OFFSET[0]), float(SCENE_OFFSET[1]), 12.0]
 

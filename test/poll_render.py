@@ -19,7 +19,7 @@ from urllib import request, parse, error
 AERPAW_BODY = {
     "scene_config": "aerpaw",
     "scene_origin": {"lat": 35.72750947, "lon": -78.69595819, "alt": 112.0},
-    "scene_offset": {"x": 118.1, "y": -123.4, "z": 0.0},
+    "scene_offset": {"x": -3.7, "y": 3.4, "z": 0.0},
     "scale": 1.0,
 }
 

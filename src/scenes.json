@@ -5,7 +5,7 @@
       "description": "AERPAW Lake Wheeler export (LW_TREES). Meters, scene centered near origin; geo-origin maps to scene XY=offset, scene z=0 is ground (HAE 112 m).",
       "scene_path": "../data/sionna_export/aerpaw_sionna.xml",
       "origin": {"lat": 35.72750947, "lon": -78.69595819, "alt": 112.0},
-      "offset": [118.1, -123.4, 0.0],
+      "offset": [-3.7, 3.4, 0.0],
       "scale": 1.0,
       "units": "m"
     },

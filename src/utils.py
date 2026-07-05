@@ -14,7 +14,7 @@ ORIGIN_LAT_LON: Final[Dict[str, float]] = {
     "alt": 112.0,
 }
 # Default scene XYZ offset (scene units) applied after the ENU -> scale step.
-SIONNA_OFFSET: Final[List[float]] = [118.1, -123.4, 0.0]
+SIONNA_OFFSET: Final[List[float]] = [-3.7, 3.4, 0.0]
 SIONNA_SCALE: Final[float] = 1.0
 
 
