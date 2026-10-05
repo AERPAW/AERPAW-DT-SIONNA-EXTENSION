@@ -374,7 +374,7 @@ class Sionna:
                 self._computed_paths = self._path_solver(scene=self.scene, max_depth=max_depth, 
                                                      max_num_paths_per_src=num_samples, samples_per_src=num_samples,
                                                      los=True, specular_reflection=True, diffuse_reflection=True,
-                                                     refraction=True)
+                                                     refraction=False)
         except Exception as e:
             import traceback
 
@@ -514,7 +514,7 @@ class Sionna:
                         samples_per_src=int(path_samples),
                         max_num_paths_per_src=int(path_samples),
                         los=True, specular_reflection=True,
-                        diffuse_reflection=False, refraction=True,
+                        diffuse_reflection=False, refraction=False,
                     )
 
         fd, tmp_path = tempfile.mkstemp(suffix=".png")
