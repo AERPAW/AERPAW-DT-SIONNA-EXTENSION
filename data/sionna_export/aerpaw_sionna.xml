@@ -1,52 +1,19 @@
 <?xml version='1.0' encoding='utf-8'?>
 <scene version="2.1.0">
-  <default name="spp" value="4096" />
-  <default name="resx" value="1920" />
-  <default name="resy" value="1080" />
-  <integrator type="path" id="elm__0" name="elm__0">
-    <integer name="max_depth" value="12" />
-  </integrator>
-  <sensor type="perspective" id="elm__31" name="elm__31">
-    <string name="fov_axis" value="x" />
-    <float name="fov" value="58.715509" />
-    <float name="principal_point_offset_x" value="0.000000" />
-    <float name="principal_point_offset_y" value="-0.000000" />
-    <float name="near_clip" value="0.500000" />
-    <float name="far_clip" value="5000.000000" />
-    <transform name="to_world">
-      <lookat origin="-35.0, -50.0, 34.0" target="2.0, 0.0, 6.6" up="0, 0, 1" />
-    </transform>
-    <sampler type="independent" name="sampler">
-      <integer name="sample_count" value="$spp" />
-    </sampler>
-    <film type="hdrfilm" name="film">
-      <integer name="width" value="$resx" />
-      <integer name="height" value="$resy" />
-    </film>
-  </sensor>
-  <emitter type="constant" id="elm__1" name="elm__1">
-    <rgb value="0.312000 0.422500 0.585000" name="radiance" />
-  </emitter>
-  <emitter type="directional" id="elm__30" name="elm__30">
-    <rgb value="5.000000 5.000000 5.000000" name="irradiance" />
-    <transform name="to_world">
-      <lookat origin="60.0, 80.0, 40.0" target="0.0, 0.0, 0.0" up="0, 0, 1" />
-    </transform>
-  </emitter>
   <bsdf type="radio-material" id="mat-tree_canopy" name="mat-tree_canopy">
     <float name="scattering_coefficient" value="0.4" />
     <float name="xpd_coefficient" value="0.2" />
     <rgb name="color" value="0.2 0.34 0.13" />
     <float name="relative_permittivity" value="1.2000000476837158" />
-    <float name="conductivity" value="0.0001" />
+    <float name="conductivity" value="0.002" />
     <float name="thickness" value="2.0" />
   </bsdf>
   <bsdf type="radio-material" id="mat-terrain-ground">
     <float name="scattering_coefficient" value="0.0" />
     <float name="xpd_coefficient" value="0.0" />
     <rgb name="color" value="0.539 0.181 0.076" />
-    <float name="relative_permittivity" value="3.0" />
-    <float name="conductivity" value="0.005" />
+    <float name="relative_permittivity" value="13.272213747969428" />
+    <float name="conductivity" value="0.257263799342238" />
     <float name="thickness" value="0.30000001192092896" />
   </bsdf>
   <shape type="ply" id="terrain-mesh" name="terrain-mesh">
@@ -60,8 +27,8 @@
     <ref name="bsdf" id="mat-terrain-ground" />
   </shape>
   <bsdf type="radio-material" id="mat-road-paved">
-    <float name="relative_permittivity" value="4.0" />
-    <float name="conductivity" value="0.005" />
+    <float name="relative_permittivity" value="3.0" />
+    <float name="conductivity" value="0.0032765600368570183" />
     <float name="thickness" value="0.1" />
     <rgb name="color" value="0.25 0.25 0.25" />
   </bsdf>
@@ -75,7 +42,7 @@
   </shape>
   <bsdf type="radio-material" id="mat-road-track">
     <float name="relative_permittivity" value="3.0" />
-    <float name="conductivity" value="0.005" />
+    <float name="conductivity" value="0.0032765600368570183" />
     <float name="thickness" value="0.3" />
     <rgb name="color" value="0.43 0.32 0.18" />
   </bsdf>
@@ -100,8 +67,8 @@
     <ref name="bsdf" id="mat-road-track" />
   </shape>
   <bsdf type="radio-material" id="mat-road-farmland_000">
-    <float name="relative_permittivity" value="3.0" />
-    <float name="conductivity" value="0.005" />
+    <float name="relative_permittivity" value="18.38779646562925" />
+    <float name="conductivity" value="0.7362305781572911" />
     <float name="thickness" value="0.30000001192092896" />
     <rgb name="color" value="0.08865558628577294 0.14126329114027164 0.0595112381629812" />
   </bsdf>
@@ -110,8 +77,8 @@
     <ref name="bsdf" id="mat-road-farmland_000" />
   </shape>
   <bsdf type="radio-material" id="mat-road-farmland_001">
-    <float name="relative_permittivity" value="3.0" />
-    <float name="conductivity" value="0.005" />
+    <float name="relative_permittivity" value="18.38779646562925" />
+    <float name="conductivity" value="0.7362305781572911" />
     <float name="thickness" value="0.30000001192092896" />
     <rgb name="color" value="0.24228112246555486 0.23074004852434915 0.08865558628577294" />
   </bsdf>
@@ -120,8 +87,8 @@
     <ref name="bsdf" id="mat-road-farmland_001" />
   </shape>
   <bsdf type="radio-material" id="mat-road-farmland_002">
-    <float name="relative_permittivity" value="3.0" />
-    <float name="conductivity" value="0.005" />
+    <float name="relative_permittivity" value="18.38779646562925" />
+    <float name="conductivity" value="0.7362305781572911" />
     <float name="thickness" value="0.30000001192092896" />
     <rgb name="color" value="0.10946171077829933 0.12477181756095049 0.05126945837404324" />
   </bsdf>
@@ -130,8 +97,8 @@
     <ref name="bsdf" id="mat-road-farmland_002" />
   </shape>
   <bsdf type="radio-material" id="mat-road-farmland_003">
-    <float name="relative_permittivity" value="3.0" />
-    <float name="conductivity" value="0.005" />
+    <float name="relative_permittivity" value="18.38779646562925" />
+    <float name="conductivity" value="0.7362305781572911" />
     <float name="thickness" value="0.30000001192092896" />
     <rgb name="color" value="0.10461648409110419 0.12213877222960187 0.052860647023180246" />
   </bsdf>
@@ -140,8 +107,8 @@
     <ref name="bsdf" id="mat-road-farmland_003" />
   </shape>
   <bsdf type="radio-material" id="mat-road-farmland_004">
-    <float name="relative_permittivity" value="3.0" />
-    <float name="conductivity" value="0.005" />
+    <float name="relative_permittivity" value="18.38779646562925" />
+    <float name="conductivity" value="0.7362305781572911" />
     <float name="thickness" value="0.30000001192092896" />
     <rgb name="color" value="0.4910208498478356 0.3564001441459435 0.17788841598362912" />
   </bsdf>
@@ -150,8 +117,8 @@
     <ref name="bsdf" id="mat-road-farmland_004" />
   </shape>
   <bsdf type="radio-material" id="mat-road-farmland_005">
-    <float name="relative_permittivity" value="3.0" />
-    <float name="conductivity" value="0.005" />
+    <float name="relative_permittivity" value="18.38779646562925" />
+    <float name="conductivity" value="0.7362305781572911" />
     <float name="thickness" value="0.30000001192092896" />
     <rgb name="color" value="0.12213877222960187 0.19290534541298454 0.04970656598412723" />
   </bsdf>
@@ -160,8 +127,8 @@
     <ref name="bsdf" id="mat-road-farmland_005" />
   </shape>
   <bsdf type="radio-material" id="mat-road-farmland_006">
-    <float name="relative_permittivity" value="3.0" />
-    <float name="conductivity" value="0.005" />
+    <float name="relative_permittivity" value="18.38779646562925" />
+    <float name="conductivity" value="0.7362305781572911" />
     <float name="thickness" value="0.30000001192092896" />
     <rgb name="color" value="0.14412847085805777 0.18116424424986022 0.06662593864377289" />
   </bsdf>
@@ -170,8 +137,8 @@
     <ref name="bsdf" id="mat-road-farmland_006" />
   </shape>
   <bsdf type="radio-material" id="mat-road-farmland_007">
-    <float name="relative_permittivity" value="3.0" />
-    <float name="conductivity" value="0.005" />
+    <float name="relative_permittivity" value="18.38779646562925" />
+    <float name="conductivity" value="0.7362305781572911" />
     <float name="thickness" value="0.30000001192092896" />
     <rgb name="color" value="0.14412847085805777 0.18116424424986022 0.0595112381629812" />
   </bsdf>
@@ -180,8 +147,8 @@
     <ref name="bsdf" id="mat-road-farmland_007" />
   </shape>
   <bsdf type="radio-material" id="mat-road-farmland_008">
-    <float name="relative_permittivity" value="3.0" />
-    <float name="conductivity" value="0.005" />
+    <float name="relative_permittivity" value="18.38779646562925" />
+    <float name="conductivity" value="0.7362305781572911" />
     <float name="thickness" value="0.30000001192092896" />
     <rgb name="color" value="0.12213877222960187 0.17464740365558504 0.05448027644244237" />
   </bsdf>
@@ -190,8 +157,8 @@
     <ref name="bsdf" id="mat-road-farmland_008" />
   </shape>
   <bsdf type="radio-material" id="mat-road-farmland_010">
-    <float name="relative_permittivity" value="3.0" />
-    <float name="conductivity" value="0.005" />
+    <float name="relative_permittivity" value="18.38779646562925" />
+    <float name="conductivity" value="0.7362305781572911" />
     <float name="thickness" value="0.30000001192092896" />
     <rgb name="color" value="0.4286904966139066 0.3564001441459435 0.21223075741405523" />
   </bsdf>
@@ -201,7 +168,7 @@
   </shape>
   <bsdf type="radio-material" id="mat-road-wood_fence">
     <float name="relative_permittivity" value="1.99" />
-    <float name="conductivity" value="0.012" />
+    <float name="conductivity" value="0.017447650824159847" />
     <float name="thickness" value="0.08" />
     <rgb name="color" value="0.28 0.16 0.07" />
   </bsdf>
@@ -492,7 +459,7 @@
     <float name="xpd_coefficient" value="0.0" />
     <rgb name="color" value="0.902 0.89 0.847" />
     <float name="relative_permittivity" value="5.24" />
-    <float name="conductivity" value="0.12" />
+    <float name="conductivity" value="0.12032746975773895" />
     <float name="thickness" value="0.1" />
   </bsdf>
   <shape type="ply" id="manual_building_000__hut_walls" name="manual_building_000__hut_walls">
@@ -544,7 +511,7 @@
     <float name="xpd_coefficient" value="0.0" />
     <rgb name="color" value="0.886 0.87 0.823" />
     <float name="relative_permittivity" value="5.24" />
-    <float name="conductivity" value="0.12" />
+    <float name="conductivity" value="0.12032746975773895" />
     <float name="thickness" value="0.1" />
   </bsdf>
   <shape type="ply" id="manual_building_002__farmbuilding_walls" name="manual_building_002__farmbuilding_walls">

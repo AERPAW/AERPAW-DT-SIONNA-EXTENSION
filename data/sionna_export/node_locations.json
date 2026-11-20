@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "coordinate_frame": "Scene-local Cartesian meters, matching aerpaw_sionna.xml",
+  "frame": {
+    "horizontal_crs": "EPSG:2264",
+    "horizontal_unit_m": 0.3048006096012192,
+    "origin_projected_m": [
+      637109.8459875309,
+      219406.98530744563
+    ],
+    "terrain_mesh": "meshes/Terrain.ply"
+  },
+  "nodes": {
+    "pn6": {
+      "role": "rx",
+      "position_m": [
+        13.70726365945302,
+        -12.968044255161658,
+        0.5606633215397091
+      ],
+      "height_agl_m": 0.5
+    },
+    "lw1": {
+      "role": "rx",
+      "position_m": [
+        -3.7020826196530834,
+        3.3617411522136535,
+        11.813150510213866
+      ],
+      "height_agl_m": 12.0
+    },
+    "lw2": {
+      "role": "rx",
+      "position_m": [
+        -451.7377220345661,
+        80.0587687837542,
+        8.96439795920929
+      ],
+      "height_agl_m": 14.0
+    },
+    "lw3": {
+      "role": "rx",
+      "position_m": [
+        364.29970335471444,
+        -283.6721005286963,
+        0.973612578038308
+      ],
+      "height_agl_m": 12.0
+    },
+    "pn3": {
+      "role": "tx",
+      "height_agl_m": 1.0
+    }
+  }
+}
